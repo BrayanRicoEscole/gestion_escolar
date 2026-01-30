@@ -3,11 +3,12 @@ import { Station } from '../../../../../types';
 export function calculateStudentGrades({
   studentId,
   station,
+  subjectId,
   getGradeValue
 }: {
   studentId: string;
   station: Station;
-  subjectId: string; // Mantenemos el parámetro por compatibilidad de firma pero no lo usamos para filtrar slots
+  subjectId: string;
   getGradeValue: (studentId: string, slotId: string, subjectId: string) => string;
 }) {
   let totalStationWeighted = 0;
@@ -19,16 +20,14 @@ export function calculateStudentGrades({
     let momentWeight = 0;
 
     moment.sections?.forEach(section => {
-      // Ahora no filtramos por subjectId: los slots son comunes a todas las materias
       const slots = section.gradeSlots ?? [];
 
       let sectionScore = 0;
       let sectionWeight = 0;
 
       slots.forEach(slot => {
-        // Obtenemos el valor de la nota. Nota: getGradeValue todavía usa subjectId en su almacenamiento
-        // pero aquí mostramos/calculamos el mismo slot para cualquier materia seleccionada.
-        const valStr = getGradeValue(studentId, slot.id, "global"); // Usamos un ID global o el actual
+        // Usamos el subjectId real pasado por el componente
+        const valStr = getGradeValue(studentId, slot.id, subjectId); 
         const val = (valStr === '' || valStr === null) ? 0 : Number(valStr);
         sectionScore += val * (slot.weight || 0);
         sectionWeight += (slot.weight || 0);

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { SchoolYear, Student, GradeEntry, Area, Lab, LearningMoment, Subject } from '../types';
+import { SchoolYear, Student, GradeEntry, SkillSelection, Subject, Skill } from '../types';
 import { MOCK_INITIAL_SCHOOL_YEAR, MOCK_INITIAL_STUDENTS } from './mockInitialData';
 
 const SUPABASE_URL = 'https://gzdiljudmdezdkntnhml.supabase.co';
@@ -11,7 +11,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   }
 });
 
-// --- LOGGER MIDDLEWARE ---
 const apiLogger = {
   logQuery: (operation: string, table: string, params?: any) => {
     console.groupCollapsed(
@@ -38,7 +37,6 @@ const apiLogger = {
   }
 };
 
-// Helper to validate UUID format
 const isValidUUID = (uuid: string) => {
   if (!uuid) return false;
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -72,33 +70,57 @@ function mapSchoolYear(db: any): SchoolYear {
                 name: g.name,
                 weight: Number(g.weight),
                 scale: g.scale
-                // subjectId removed as slots are now global
               }))
             }))
         })),
-      subjects: st.subjects || []
+      subjects: (st.subjects || []).map((sub: any) => ({
+        ...sub,
+        skills: [] // Inicialmente vacío, se llena con consulta separada
+      }))
     }))
   };
 }
 
-const diffIds = (existing: any[], incoming: any[]) =>
-  existing
-    .filter(e => !incoming.find(i => i.id === e.id))
-    .map(e => e.id);
-
 export const api = {
   getSchoolYear: async (): Promise<SchoolYear> => {
-    apiLogger.logQuery('SELECT', 'school_year_full');
+    apiLogger.logQuery('SELECT', 'school_year_full + subject_skills');
     try {
-      const { data, error, status } = await supabase
+      // Consulta 1: Estructura del año
+      const { data: yearData, error: yearError, status: yearStatus } = await supabase
         .from('school_year_full')
         .select('*')
         .single();
 
-      apiLogger.logResponse(status, data, error);
-      if (error || !data) throw error;
-      return mapSchoolYear(data);
+      if (yearError || !yearData) throw yearError;
+
+      // Consulta 2: Todas las habilidades (separada para asegurar persistencia)
+      const { data: skillsData, error: skillsError } = await supabase
+        .from('subject_skills')
+        .select('*');
+
+      if (skillsError) console.error("Error fetching skills:", skillsError);
+
+      const year = mapSchoolYear(yearData);
+
+      // Inyectar habilidades en la estructura jerárquica
+      if (skillsData && skillsData.length > 0) {
+        year.stations.forEach(station => {
+          station.subjects.forEach(subject => {
+            subject.skills = skillsData
+              .filter(s => s.subject_id === subject.id)
+              .map(s => ({
+                id: s.id,
+                level: s.level,
+                description: s.description
+              }));
+          });
+        });
+      }
+
+      apiLogger.logResponse(yearStatus, year, null);
+      return year;
     } catch (e) {
+      console.error("Critical error in getSchoolYear:", e);
       return MOCK_INITIAL_SCHOOL_YEAR;
     }
   },
@@ -112,7 +134,7 @@ export const api = {
         .order('full_name', { ascending: true });
 
       apiLogger.logResponse(status, data ? `Fetched ${data.length} students` : null, error);
-      if (error || !data || data.length === 0) throw error;
+      if (error || !data) throw error;
       return data as Student[];
     } catch (e) {
       return MOCK_INITIAL_STUDENTS;
@@ -120,139 +142,100 @@ export const api = {
   },
 
   updateSchoolYear: async (year: SchoolYear): Promise<void> => {
-    apiLogger.logQuery('UPSERT TRANSACTION', 'school_year_structure', year);
+    apiLogger.logQuery('BATCH UPSERT (WITH SKILLS)', 'school_year_structure', year);
     
-    // Step 1: Year
-    const { status: yStatus, error: yError } = await supabase
-      .from('school_years')
-      .upsert({ id: year.id, name: year.name }, { onConflict: 'id' });
-    apiLogger.logResponse(yStatus, 'Year upserted', yError);
+    await supabase.from('school_years').upsert({ id: year.id, name: year.name });
 
-    // Step 2: Stations
-    const { data: existingStations } = await supabase
-      .from('stations')
-      .select('id')
-      .eq('school_year_id', year.id);
+    const stationRows = new Map();
+    const subjectRows = new Map();
+    const skillRows = new Map();
+    const momentRows = new Map();
+    const sectionRows = new Map();
+    const slotRows = new Map();
 
-    const stationRows = year.stations.map((s, idx) => ({
-      id: s.id,
-      school_year_id: year.id,
-      name: s.name,
-      weight: s.weight,
-      start_date: s.startDate,
-      end_date: s.endDate,
-      sort_order: idx
-    }));
+    year.stations.forEach((station, sIdx) => {
+      stationRows.set(station.id, {
+        id: station.id, school_year_id: year.id, name: station.name,
+        weight: station.weight, start_date: station.startDate, end_date: station.endDate, sort_order: sIdx
+      });
 
-    const { status: stStatus, error: stError } = await supabase.from('stations').upsert(stationRows);
-    apiLogger.logResponse(stStatus, 'Stations upserted', stError);
+      station.subjects.forEach(sub => {
+        subjectRows.set(sub.id, {
+          id: sub.id, station_id: station.id, name: sub.name, area: sub.area,
+          lab: sub.lab, courses: sub.courses, modalities: sub.modalities, levels: sub.levels
+        });
 
-    if (existingStations) {
-      const toDelete = diffIds(existingStations, year.stations);
-      if (toDelete.length) {
-        apiLogger.logQuery('DELETE', 'stations', toDelete);
-        await supabase.from('stations').delete().in('id', toDelete);
+        sub.skills?.forEach(skill => {
+          skillRows.set(skill.id, {
+            id: skill.id, subject_id: sub.id, level: skill.level, description: skill.description
+          });
+        });
+      });
+
+      station.moments.forEach((moment, mIdx) => {
+        momentRows.set(moment.id, { id: moment.id, station_id: station.id, name: moment.name, weight: moment.weight, sort_order: mIdx });
+        moment.sections.forEach((section, secIdx) => {
+          sectionRows.set(section.id, { id: section.id, moment_id: moment.id, name: section.name, weight: section.weight, sort_order: secIdx });
+          section.gradeSlots.forEach(gs => {
+            slotRows.set(gs.id, { id: gs.id, section_id: section.id, name: gs.name, weight: gs.weight, scale: gs.scale });
+          });
+        });
+      });
+    });
+
+    const execUpsert = async (table: string, dataMap: Map<string, any>) => {
+      if (dataMap.size === 0) return;
+      const { error } = await supabase.from(table).upsert(Array.from(dataMap.values()));
+      if (error) {
+        console.error(`Error upserting ${table}:`, error);
+        throw error;
       }
-    }
+    };
 
-    // Step 3: Deep nested update
-    for (const station of year.stations) {
-      // Subjects
-      const { status: subStatus, error: subError } = await supabase.from('subjects').upsert(
-        station.subjects.map(sub => ({
-          id: sub.id,
-          station_id: station.id,
-          name: sub.name,
-          area: sub.area,
-          lab: sub.lab,
-          courses: sub.courses,
-          modalities: sub.modalities,
-          levels: sub.levels
-        }))
-      );
-      apiLogger.logResponse(subStatus, `Subjects for station ${station.name} upserted`, subError);
-
-      // Moments
-      const { status: mStatus, error: mError } = await supabase.from('learning_moments').upsert(
-        station.moments.map((m, idx) => ({
-          id: m.id,
-          station_id: station.id,
-          name: m.name,
-          weight: m.weight,
-          sort_order: idx
-        }))
-      );
-      apiLogger.logResponse(mStatus, `Moments for station ${station.name} upserted`, mError);
-
-      for (const moment of station.moments) {
-        // Sections
-        const { status: secStatus, error: secError } = await supabase.from('sections').upsert(
-          moment.sections.map((s, idx) => ({
-            id: s.id,
-            moment_id: moment.id,
-            name: s.name,
-            weight: s.weight,
-            sort_order: idx
-          }))
-        );
-        apiLogger.logResponse(secStatus, `Sections for moment ${moment.name} upserted`, secError);
-
-        for (const section of moment.sections) {
-          // Grade Slots - REMOVED subject_id as it's no longer in the schema for this table
-          const { status: gsStatus, error: gsError } = await supabase.from('grade_slots').upsert(
-            section.gradeSlots.map(gs => ({
-              id: gs.id,
-              section_id: section.id,
-              name: gs.name,
-              weight: gs.weight,
-              scale: gs.scale
-            }))
-          );
-          apiLogger.logResponse(gsStatus, `Grade slots for section ${section.name} upserted`, gsError);
-        }
-      }
-    }
+    await execUpsert('stations', stationRows);
+    await execUpsert('subjects', subjectRows);
+    await execUpsert('subject_skills', skillRows);
+    await execUpsert('learning_moments', momentRows);
+    await execUpsert('sections', sectionRows);
+    await execUpsert('grade_slots', slotRows);
   },
 
   getGrades: async (): Promise<GradeEntry[]> => {
-    apiLogger.logQuery('SELECT', 'grades');
     try {
-      const { data, error, status } = await supabase
-        .from('grades')
-        .select('*');
-
-      apiLogger.logResponse(status, data ? `${data.length} grades fetched` : null, error);
-      if (error || !data) return [];
-      
-      return data.map(g => ({
-        studentId: g.student_id,
-        slotId: g.slot_id,
-        subjectId: g.subject_id || '00000000-0000-0000-0000-000000000000',
-        value: g.value
+      const { data } = await supabase.from('grades').select('*');
+      return (data || []).map(g => ({
+        studentId: g.student_id, slotId: g.slot_id, subjectId: g.subject_id, value: g.value
       }));
-    } catch (e) {
-      return [];
-    }
+    } catch (e) { return []; }
   },
 
   saveGrades: async (grades: GradeEntry[]): Promise<void> => {
-    const validEntries = grades
-      .filter(g => g.value !== null && isValidUUID(g.studentId) && isValidUUID(g.slotId))
-      .map(g => ({
-        student_id: g.studentId,
-        slot_id: g.slotId,
-        subject_id: g.subjectId,
-        value: g.value
-      }));
+    const valid = grades.filter(g => g.value !== null && isValidUUID(g.studentId)).map(g => ({
+      student_id: g.studentId, slot_id: g.slotId, subject_id: g.subjectId, value: g.value
+    }));
+    if (valid.length > 0) await supabase.from('grades').upsert(valid, { onConflict: 'student_id,slot_id,subject_id' });
+  },
 
-    if (validEntries.length === 0) return;
+  getSkillSelections: async (): Promise<SkillSelection[]> => {
+    apiLogger.logQuery('SELECT', 'student_skill_selections');
+    const { data } = await supabase.from('student_skill_selections').select('*');
+    return (data || []).map(s => ({
+      studentId: s.student_id,
+      skillId: s.skill_id,
+      subjectId: s.subject_id,
+      stationId: s.station_id
+    }));
+  },
 
-    apiLogger.logQuery('UPSERT', 'grades', validEntries);
-    const { error, status } = await supabase
-      .from('grades')
-      .upsert(validEntries, { onConflict: 'student_id,slot_id,subject_id' });
-
-    apiLogger.logResponse(status, 'Grades synchronized', error);
-    if (error) throw error;
+  saveSkillSelections: async (selections: SkillSelection[]): Promise<void> => {
+    const valid = selections.map(s => ({
+      student_id: s.studentId,
+      skill_id: s.skillId,
+      subject_id: s.subjectId,
+      station_id: s.stationId
+    }));
+    if (valid.length > 0) {
+      await supabase.from('student_skill_selections').upsert(valid, { onConflict: 'student_id,skill_id,subject_id,station_id' });
+    }
   }
 };

@@ -17,19 +17,33 @@ export enum Modality {
   RS = 'Renfort En Sede (RS)'
 }
 
+// Los niveles ahora corresponden a las letras de los cursos (C, D, E, F...)
 export enum Level {
-  PETINE = 'Petiné (Jardín)',
-  ELEMENTARY = 'Elementary',
-  MIDDLE = 'Middle',
-  HIGHSCHOOL = 'Highschool'
+  C = 'C',
+  D = 'D',
+  E = 'E',
+  F = 'F',
+  G = 'G',
+  H = 'H',
+  I = 'I',
+  J = 'J',
+  K = 'K',
+  L = 'L',
+  M = 'M',
+  N = 'N'
+}
+
+export interface Skill {
+  id: string;
+  level: Level;
+  description: string;
 }
 
 export interface GradeSlot {
   id: string;
   name: string;
   weight: number;
-  scale: string; // Fixed to "1-5"
-  // subjectId removed as slots are now global across all subjects
+  scale: string;
 }
 
 export interface Section {
@@ -51,9 +65,10 @@ export interface Subject {
   name: string;
   area: Area;
   lab: Lab;
-  courses: string[]; // Codes like "N1-C", "M5-M"
+  courses: string[];
   modalities: Modality[];
   levels: Level[];
+  skills?: Skill[]; 
 }
 
 export interface Station {
@@ -82,6 +97,13 @@ export interface Student {
 export interface GradeEntry {
   studentId: string;
   slotId: string;
-  subjectId: string; // Grades themselves are still subject-specific
+  subjectId: string;
   value: number | null;
+}
+
+export interface SkillSelection {
+  studentId: string;
+  subjectId: string;
+  stationId: string;
+  skillId: string;
 }

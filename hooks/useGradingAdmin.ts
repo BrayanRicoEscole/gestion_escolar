@@ -1,16 +1,8 @@
-
 import { useState, useEffect, useMemo } from 'react';
-import { SchoolYear, Lab, Modality, LearningMoment, Section, GradeSlot } from '../types';
+import { SchoolYear, Lab, Modality, LearningMoment, Section, GradeSlot, Level } from '../types';
 import { api } from '../services/api';
 
-// Native UUID v4 generator helper
-const generateUUID = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
+const generateUUID = () => crypto.randomUUID();
 
 export const useGradingAdmin = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -47,7 +39,6 @@ export const useGradingAdmin = () => {
     const sectionSum = currentMoment?.sections.reduce((acc, sec) => acc + (sec.weight || 0), 0) || 0;
     const currentSection = currentMoment?.sections[selectedSectionIdx];
     
-    // Ahora los slots son globales: la suma de pesos considera todos los slots de la sección
     const gradeSum = currentSection?.gradeSlots
       .reduce((acc, slot) => acc + (slot.weight || 0), 0) || 0;
 
@@ -101,10 +92,7 @@ export const useGradingAdmin = () => {
     const newStations = [...schoolYear.stations];
     const station = newStations[selectedStationIdx];
     const moment = station?.moments[selectedMomentIdx];
-    
     if (!moment || !moment.sections[selectedSectionIdx]) return;
-    
-    // Los slots ya no se asocian a una materia específica en la configuración
     moment.sections[selectedSectionIdx].gradeSlots.push({
       id: generateUUID(),
       name: 'Nueva Nota',
@@ -123,7 +111,6 @@ export const useGradingAdmin = () => {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Error saving school year structure:", error);
-      alert("Error al guardar la estructura. Verifique la consola.");
     } finally {
       setIsSaving(false);
     }

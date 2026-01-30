@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Calendar, Wind, BookOpen, Clock, Layers, PlusCircle, Globe, Save, School, Loader2 } from 'lucide-react';
+import { Calendar, Wind, BookOpen, Clock, Layers, PlusCircle, Globe, Save, School, Loader2, Target } from 'lucide-react';
 import { useGradingAdmin } from '../../hooks/useGradingAdmin';
 import { StepIndicator, GradingFooter } from './components/GradingNavigation';
 
@@ -11,6 +10,7 @@ import {Step4Courses } from './components/gradingSteps/Step4Courses.tsx'
 import {Step5Moments } from './components/gradingSteps/Step5Moments.tsx'
 import {Step6Sections } from './components/gradingSteps/Step6Sections.tsx'
 import {Step7GradeSlots } from './components/gradingSteps/Step7GradeSlots.tsx'
+import {Step8Skills } from './components/gradingSteps/Step8Skills.tsx'
 import {StepFinalSuccess } from './components/gradingSteps/StepFinalSuccess.tsx'
 
 const GradingModule: React.FC = () => {
@@ -33,6 +33,7 @@ const GradingModule: React.FC = () => {
     { id: 5, title: 'Momentos', icon: Clock },
     { id: 6, title: 'Secciones', icon: Layers },
     { id: 7, title: 'Notas', icon: PlusCircle },
+    { id: 8, title: 'Habilidades', icon: Target },
   ];
 
   const toggleCourse = (subIdx: number, code: string) => {
@@ -63,11 +64,7 @@ const GradingModule: React.FC = () => {
       );
       case 4: {
         const currentStation = admin.schoolYear!.stations[admin.selectedStationIdx];
-        if (!currentStation) return (
-          <div className="p-10 text-center bg-white rounded-3xl border border-dashed border-slate-200">
-            <p className="text-slate-400 font-bold uppercase text-sm">No hay estaciones configuradas para este año.</p>
-          </div>
-        );
+        if (!currentStation) return null;
         return (
           <div className="flex flex-col md:flex-row gap-8 animate-in slide-in-from-right-4 duration-300">
             <div className="w-full md:w-1/4 space-y-4">
@@ -119,7 +116,17 @@ const GradingModule: React.FC = () => {
           total={admin.validations.gradeTotal} 
         />
       );
-      case 8: return <StepFinalSuccess onReset={() => admin.setCurrentStep(1)} />;
+      case 8: return (
+        <Step8Skills 
+          year={admin.schoolYear!} 
+          setYear={admin.setSchoolYear} 
+          stationIdx={admin.selectedStationIdx} 
+          subjectIdx={admin.selectedSubjectIdx}
+          onSelectStation={admin.setSelectedStationIdx}
+          onSelectSubject={admin.setSelectedSubjectIdx}
+        />
+      );
+      case 9: return <StepFinalSuccess onReset={() => admin.setCurrentStep(1)} />;
       default: return null;
     }
   };
