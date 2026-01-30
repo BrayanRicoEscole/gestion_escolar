@@ -1,0 +1,56 @@
+
+:root {
+  --primary: #0f4899;
+  --primary-hover: #0a3570;
+  --primary-light: #e7eff8;
+  --primary-soft: #f0f4f9;
+  --secondary: #f29c2b;
+  --secondary-hover: #d9861a;
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+}
+
+body {
+  background-color: var(--slate-50);
+  color: var(--slate-900);
+  font-family: 'Inter', sans-serif;
+}
+
+/* Custom Utilities */
+.bg-primary { background-color: var(--primary); }
+.bg-primary-light { background-color: var(--primary-light); }
+.text-primary { color: var(--primary); }
+.border-primary { border-color: var(--primary); }
+
+.bg-secondary { background-color: var(--secondary); }
+.text-secondary { color: var(--secondary); }
+.border-secondary { border-color: var(--secondary); }
+
+.card-shadow {
+  box-shadow: 0 10px 25px -5px rgba(15, 72, 153, 0.05), 0 8px 10px -6px rgba(15, 72, 153, 0.05);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.btn-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-transition:active {
+  transform: scale(0.95);
+}
+
+/* Custom classes for replacing Tailwind defaults */
+.focus-primary:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  --tw-ring-offset-width: 2px;
+  --tw-ring-color: var(--primary);
+  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--primary);
+}
+

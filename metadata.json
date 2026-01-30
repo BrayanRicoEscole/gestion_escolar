@@ -1,0 +1,8 @@
+{
+  "name": "EduGrade Pro - Sistema de Gestión Escolar",
+  "description": "Módulo avanzado de calificaciones para instituciones educativas con configuración jerárquica de periodos, momentos y criterios de evaluación.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
