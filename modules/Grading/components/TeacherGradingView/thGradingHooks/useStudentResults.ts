@@ -1,3 +1,4 @@
+
 import { useMemo } from 'react';
 import { calculateStudentGrades } from '../Domain/gradeCalculator';
 
@@ -6,6 +7,7 @@ export function useStudentResults({
   station,
   subjectId,
   getGradeValue,
+  getLevelingValue,
   consolidationFilter
 }: any) {
   const studentsWithGrades = useMemo(() => {
@@ -16,11 +18,12 @@ export function useStudentResults({
       results: calculateStudentGrades({
         studentId: s.id,
         station,
-        subjectId, // Se mantiene por firma pero el cálculo es global para los slots
-        getGradeValue
+        subjectId,
+        getGradeValue,
+        getLevelingValue
       })
     }));
-  }, [students, station, subjectId, getGradeValue]);
+  }, [students, station, subjectId, getGradeValue, getLevelingValue]);
 
   return useMemo(() => {
     if (consolidationFilter === 'all') return studentsWithGrades;

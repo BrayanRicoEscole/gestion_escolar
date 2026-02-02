@@ -1,14 +1,10 @@
-
 import { SchoolYear, Student, GradeEntry, Area, Lab, LearningMoment, Subject } from '../types';
 
-// Helper to generate VALID UUIDs for mock data (using only hex chars 0-9, a-f)
 const mockUuid = (prefixCode: string, index: number) => {
-  // prefixCode should be a 4-char hex string
   const hex = index.toString(16).padStart(12, '0');
   return `00000000-0000-4000-8000-${hex}`;
 };
 
-// Association with a fixed mock subject ID for initial data
 const SUB1_ID = mockUuid('d001', 1);
 
 export const MOCK_INITIAL_MOMENTS: LearningMoment[] = [
@@ -22,9 +18,7 @@ export const MOCK_INITIAL_MOMENTS: LearningMoment[] = [
         name: 'Diagnóstico inicial',
         weight: 0,
         gradeSlots: [
-          // Fix: Removed subjectId property as it is no longer part of the GradeSlot interface
           { id: mockUuid('c001', 1001), name: 'I Wonder', weight: 0, scale: '1 - 5' },
-          // Fix: Removed subjectId property as it is no longer part of the GradeSlot interface
           { id: mockUuid('c001', 1002), name: 'Pruning Inicial', weight: 0, scale: '1 - 5' }
         ]
       },
@@ -33,7 +27,6 @@ export const MOCK_INITIAL_MOMENTS: LearningMoment[] = [
         name: 'Learning Crop',
         weight: 30,
         gradeSlots: [
-          // Fix: Removed subjectId property as it is no longer part of the GradeSlot interface
           { id: mockUuid('c001', 1003), name: '1er Entrega', weight: 100, scale: '1 - 5' }
         ]
       }
@@ -49,7 +42,6 @@ export const MOCK_INITIAL_MOMENTS: LearningMoment[] = [
         name: 'Trabajo en clase',
         weight: 100,
         gradeSlots: [
-          // Fix: Removed subjectId property as it is no longer part of the GradeSlot interface
           { id: mockUuid('c001', 2001), name: 'Participación', weight: 100, scale: '1 - 5' }
         ]
       }
@@ -58,8 +50,8 @@ export const MOCK_INITIAL_MOMENTS: LearningMoment[] = [
 ];
 
 export const MOCK_INITIAL_SUBJECTS: Subject[] = [
-  { id: SUB1_ID, name: 'Lenguaje', area: Area.CLEPE, lab: Lab.CLEPE, courses: ['A1-C', 'B2-M'], modalities: [], levels: [] },
-  { id: mockUuid('d001', 2), name: 'Matemáticas', area: Area.STEAM, lab: Lab.MEC, courses: ['A1-C', 'A1-M'], modalities: [], levels: [] },
+  { id: SUB1_ID, name: 'Lenguaje', area: Area.CLEPE, lab: Lab.CLEPE, courses: ['C1-C', 'D2-M'], modalities: [], levels: [] },
+  { id: mockUuid('d001', 2), name: 'Matemáticas', area: Area.STEAM, lab: Lab.MEC, courses: ['C1-C', 'C1-M'], modalities: [], levels: [] },
 ];
 
 export const MOCK_INITIAL_SCHOOL_YEAR: SchoolYear = {
@@ -72,9 +64,9 @@ export const MOCK_INITIAL_SCHOOL_YEAR: SchoolYear = {
 };
 
 export const MOCK_INITIAL_STUDENTS: Student[] = [
-  { id: mockUuid('f001', 1), full_name: 'Alejandro Rodríguez', document: '10203040' },
-  { id: mockUuid('f001', 2), full_name: 'Beatriz Morales', document: '20304050' },
-  { id: mockUuid('f001', 3), full_name: 'Carlos Sánchez', document: '30405060' },
-  { id: mockUuid('f001', 4), full_name: 'Daniela Castro', document: '40506070' },
-  { id: mockUuid('f001', 5), full_name: 'Esteban Quintero', document: '50607080' },
+  { id: 'ea071330-375f-4c26-bdc0-697596480e2f', full_name: 'Alejandro Rodríguez', document: '10203040', academic_level: 'C1', grade: '1', atelier: 'Mónaco', modality: 'RS' },
+  { id: '390ce1c8-9b6d-457d-8562-c72f9f94a758', full_name: 'Beatriz Morales', document: '20304050', academic_level: 'C1', grade: '1', atelier: 'Alhambra', modality: 'RS' },
+  { id: '7ba440be-271d-47ed-915b-c6a4b43bb400', full_name: 'Carlos Sánchez', document: '30405060', academic_level: 'C2', grade: '2', atelier: 'Mandalay', modality: 'RS' },
+  { id: '53cf514a-dc50-48bc-a86e-86a67ec86ac2', full_name: 'Daniela Castro', document: '40506070', academic_level: 'D1', grade: '3', atelier: 'Casa', modality: 'RC' },
+  { id: '22732320-8b10-4be8-9648-e5a5f09aec32', full_name: 'Esteban Quintero', document: '50607080', academic_level: 'D2', grade: '4', atelier: 'Mónaco', modality: 'RS' },
 ];

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Calendar, Wind, BookOpen, Clock, Layers, PlusCircle, Globe, Save, School, Loader2, Target } from 'lucide-react';
 import { useGradingAdmin } from '../../hooks/useGradingAdmin';
@@ -36,19 +37,6 @@ const GradingModule: React.FC = () => {
     { id: 8, title: 'Habilidades', icon: Target },
   ];
 
-  const toggleCourse = (subIdx: number, code: string) => {
-    if (!admin.schoolYear) return;
-    const ns = [...admin.schoolYear.stations];
-    const station = ns[admin.selectedStationIdx];
-    if (!station || !station.subjects?.[subIdx]) return;
-    const sub = station.subjects[subIdx];
-    const currentCourses = sub.courses || [];
-    sub.courses = currentCourses.includes(code) 
-      ? currentCourses.filter(c => c !== code) 
-      : [...currentCourses, code];
-    admin.setSchoolYear({ ...admin.schoolYear, stations: ns });
-  };
-
   const renderContent = () => {
     switch (admin.currentStep) {
       case 1: return <Step1Year year={admin.schoolYear!} setYear={admin.setSchoolYear} />;
@@ -68,12 +56,25 @@ const GradingModule: React.FC = () => {
         return (
           <div className="flex flex-col md:flex-row gap-8 animate-in slide-in-from-right-4 duration-300">
             <div className="w-full md:w-1/4 space-y-4">
-               <select value={admin.selectedSubjectIdx} onChange={(e) => admin.setSelectedSubjectIdx(Number(e.target.value))} className="w-full p-4 rounded-2xl text-xs text-black font-black border border-slate-200 bg-white">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Seleccionar Materia</p>
+               <select 
+                 value={admin.selectedSubjectIdx} 
+                 onChange={(e) => admin.setSelectedSubjectIdx(Number(e.target.value))} 
+                 className="w-full p-4 rounded-2xl text-xs text-black font-black border border-slate-200 bg-white shadow-sm"
+               >
                   {(currentStation.subjects || []).map((s, i) => <option key={s.id} value={i}>{s.name}</option>)}
                </select>
+               <div className="mt-6 p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                  <p className="text-[9px] font-black text-amber-700 uppercase tracking-tight">Info:</p>
+                  <p className="text-[10px] text-amber-600 font-bold leading-tight">Seleccione los grupos para habilitar en el libro de notas de esta materia.</p>
+               </div>
             </div>
             <div className="flex-1 bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm">
-               <Step4Courses station={currentStation} subjectIdx={admin.selectedSubjectIdx} onToggle={toggleCourse} />
+               <Step4Courses 
+                 station={currentStation} 
+                 subjectIdx={admin.selectedSubjectIdx} 
+                 onToggle={admin.toggleCourse} 
+               />
             </div>
           </div>
         );

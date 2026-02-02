@@ -1,15 +1,18 @@
+
 import { Station } from '../../../../../types';
 
 export function calculateStudentGrades({
   studentId,
   station,
   subjectId,
-  getGradeValue
+  getGradeValue,
+  getLevelingValue
 }: {
   studentId: string;
   station: Station;
   subjectId: string;
   getGradeValue: (studentId: string, slotId: string, subjectId: string) => string;
+  getLevelingValue: (studentId: string) => string;
 }) {
   let totalStationWeighted = 0;
   let totalStationWeight = 0;
@@ -21,12 +24,10 @@ export function calculateStudentGrades({
 
     moment.sections?.forEach(section => {
       const slots = section.gradeSlots ?? [];
-
       let sectionScore = 0;
       let sectionWeight = 0;
 
       slots.forEach(slot => {
-        // Usamos el subjectId real pasado por el componente
         const valStr = getGradeValue(studentId, slot.id, subjectId); 
         const val = (valStr === '' || valStr === null) ? 0 : Number(valStr);
         sectionScore += val * (slot.weight || 0);
@@ -45,8 +46,19 @@ export function calculateStudentGrades({
     totalStationWeight += (moment.weight || 0);
   });
 
+  const rawFinal = totalStationWeight > 0 ? totalStationWeighted / totalStationWeight : 0;
+  
+  // LOGICA DE NIVELACION (OVERRIDE)
+  const levelingStr = getLevelingValue(studentId);
+  const levelingVal = (levelingStr === '' || levelingStr === null) ? 0 : Number(levelingStr);
+  
+  // Si la nivelación es 3.7 o superior, la nota final es 3.7 sin importar lo demás
+  const isLevelingApplied = levelingVal >= 3.7;
+  const final = isLevelingApplied ? 3.7 : rawFinal;
+
   return {
     moments,
-    final: totalStationWeight > 0 ? totalStationWeighted / totalStationWeight : 0
+    final,
+    isLevelingApplied
   };
 }

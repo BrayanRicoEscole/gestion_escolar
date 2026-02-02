@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Loader2, AlertCircle, Search, Calendar, Lock, Unlock } from 'lucide-react';
 import { useGrading } from '../../../../hooks/useGrading';
@@ -22,11 +23,19 @@ const TeacherGradingView: React.FC = () => {
     setSelectedSubjectId = () => {},
     selectedCourse = '',
     setSelectedCourse = () => {},
+    selectedAtelier = 'all',
+    setSelectedAtelier = () => {},
+    selectedModality = 'all',
+    setSelectedModality = () => {},
+    selectedAcademicLevel = 'all',
+    setSelectedAcademicLevel = () => {},
     searchTerm = '',
     setSearchTerm = () => {},
     isSaving = false,
     getGradeValue = () => '',
+    getLevelingValue = () => '',
     handleGradeChange = () => {},
+    handleLevelingChange = () => {},
     saveGrades = async () => false,
     toggleSkillSelection = () => {},
     getSkillSelectionsForStudent = () => []
@@ -68,6 +77,7 @@ const TeacherGradingView: React.FC = () => {
     station: currentStation,
     subjectId: selectedSubjectId,
     getGradeValue,
+    getLevelingValue,
     consolidationFilter
   });
 
@@ -114,11 +124,17 @@ const TeacherGradingView: React.FC = () => {
         selectedSubjectId={selectedSubjectId}
         selectedCourse={selectedCourse}
         consolidationFilter={consolidationFilter}
+        selectedAtelier={selectedAtelier}
+        selectedModality={selectedModality}
+        selectedAcademicLevel={selectedAcademicLevel}
         searchTerm={searchTerm}
         onStationChange={setSelectedStationId}
         onSubjectChange={setSelectedSubjectId}
         onCourseChange={setSelectedCourse}
         onConsolidationChange={setConsolidationFilter}
+        onAtelierChange={setSelectedAtelier}
+        onModalityChange={setSelectedModality}
+        onAcademicLevelChange={setSelectedAcademicLevel}
         onSearchChange={setSearchTerm}
       />
 
@@ -129,7 +145,9 @@ const TeacherGradingView: React.FC = () => {
           selectedSubjectId={selectedSubjectId}
           selectedCourse={selectedCourse}
           getGradeValue={getGradeValue}
+          getLevelingValue={getLevelingValue}
           onGradeChange={handleGradeChange}
+          onLevelingChange={handleLevelingChange}
           collapsedMoments={collapsedMoments}
           onToggleMoment={toggleMoment}
           isEditable={isWithinDateRange}
@@ -145,9 +163,14 @@ const TeacherGradingView: React.FC = () => {
 
       <div className="mt-8 p-6 bg-blue-50 rounded-3xl border border-blue-100 flex items-center gap-4">
         <AlertCircle className="text-primary shrink-0" size={24} />
-        <p className="text-sm text-primary font-bold">
-          <span className="uppercase">Importante:</span> Solo se permiten calificaciones de 1 o 5.
-        </p>
+        <div className="flex flex-col">
+            <p className="text-sm text-primary font-bold">
+                <span className="uppercase">Importante:</span> Solo se permiten calificaciones de 1 o 5.
+            </p>
+            <p className="text-xs text-primary/70">
+                La columna de <strong>Nivelación</strong> sobreescribe la nota final a 3.7 si se registra un valor satisfactorio (≥ 3.7).
+            </p>
+        </div>
       </div>
     </div>
   );

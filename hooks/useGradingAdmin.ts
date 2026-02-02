@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { SchoolYear, Lab, Modality, LearningMoment, Section, GradeSlot, Level } from '../types';
 import { api } from '../services/api';
@@ -50,6 +51,39 @@ export const useGradingAdmin = () => {
       gradeTotal: gradeSum
     };
   }, [schoolYear, selectedStationIdx, selectedMomentIdx, selectedSectionIdx]);
+
+  // Función mejorada que propaga cambios en materias con el mismo ID
+  const toggleCourse = (subIdx: number, code: string) => {
+    if (!schoolYear) return;
+    
+    setSchoolYear(prev => {
+      if (!prev) return prev;
+      const nextYear = JSON.parse(JSON.stringify(prev)) as SchoolYear;
+      const station = nextYear.stations[selectedStationIdx];
+      
+      if (!station || !station.subjects?.[subIdx]) return prev;
+      
+      const targetSubId = station.subjects[subIdx].id;
+      const sub = station.subjects[subIdx];
+      const currentCourses = sub.courses || [];
+      const newCourses = currentCourses.includes(code) 
+        ? currentCourses.filter(c => c !== code) 
+        : [...currentCourses, code];
+      
+      // SINCRONIZACIÓN GLOBAL: Buscamos esta misma materia en TODAS las estaciones
+      // para que el estado de 'courses' sea el mismo en toda la app
+      nextYear.stations.forEach(st => {
+        st.subjects.forEach(s => {
+          if (s.id === targetSubId) {
+            s.courses = newCourses;
+          }
+        });
+      });
+      
+      console.log(`%c[HOOK] Sincronización Global: ${targetSubId} ahora tiene cursos:`, 'color: #10b981;', newCourses);
+      return nextYear;
+    });
+  };
 
   const moveSubject = (subjectIdx: number, fromIdx: number, toIdx: number) => {
     if (!schoolYear || fromIdx === toIdx) return;
@@ -106,6 +140,7 @@ export const useGradingAdmin = () => {
     if (!schoolYear) return;
     setIsSaving(true);
     try {
+      console.log('%c[HOOK] Enviando Estructura Sincronizada a API:', 'color: #0f4899;', schoolYear);
       await api.updateSchoolYear(schoolYear);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -125,6 +160,7 @@ export const useGradingAdmin = () => {
     selectedSectionIdx, setSelectedSectionIdx,
     selectedSubjectIdx, setSelectedSubjectIdx,
     validations, handleSave,
-    moveSubject, moveGradeSlot, addSection, addGradeSlot
+    moveSubject, moveGradeSlot, addSection, addGradeSlot,
+    toggleCourse
   };
 };

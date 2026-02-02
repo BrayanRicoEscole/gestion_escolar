@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Target, Eye, EyeOff, Award } from 'lucide-react';
+import { Target, Eye, EyeOff, Award, TrendingUp } from 'lucide-react';
 import { Station, Section, GradeSlot } from '../../../../../../types';
 
 interface TableHeaderProps {
@@ -60,6 +61,13 @@ export const TableHeader: React.FC<TableHeaderProps> = ({
             </div>
           </th>
         ))}
+
+        <th rowSpan={3} className="p-4 text-center text-[10px] font-black uppercase border-l border-white/10 bg-amber-600 min-w-[100px] border-b border-white/10">
+           <div className="flex flex-col items-center gap-1">
+              <TrendingUp size={14} />
+              Nivelación
+           </div>
+        </th>
 
         <th rowSpan={3} className="p-4 text-center text-[10px] font-black uppercase border-l border-white/10 bg-primary/95 min-w-[80px] border-b border-white/10">
           Def.

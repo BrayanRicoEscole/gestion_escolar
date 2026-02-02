@@ -1,19 +1,22 @@
-import { CheckCircle, AlertCircle, Lock, Award, Target, X } from 'lucide-react';
+
+import { CheckCircle, AlertCircle, Lock, Award, Target, X, Home, MapPin, TrendingUp, Sparkles } from 'lucide-react';
 import React, { useState, useMemo } from 'react';
 import { GradeSlot, Section, Station, Student, Skill, Level } from '../../../../../../types';
 
 interface StudentRowProps {
-  student: Student & { results?: { moments: Record<string, number>; final: number } };
+  student: Student & { results?: { moments: Record<string, number>; final: number; isLevelingApplied?: boolean } };
   station: Station;
   selectedSubjectId: string;
   selectedCourse: string;
   momentAverages: Record<string, number>;
   finalAverage: number;
   getGradeValue: (studentId: string, slotId: string, subjectId: string) => string;
+  getLevelingValue: (studentId: string) => string;
   onGradeChange: (studentId: string, slotId: string, subjectId: string, value: string) => void;
+  onLevelingChange: (studentId: string, value: string) => void;
   collapsedMoments: Set<string>;
   isEditable: boolean;
-  selectedSkillIds: string[]; // Recibido del hook global
+  selectedSkillIds: string[]; 
   onToggleSkill: (studentId: string, skillId: string) => void;
 }
 
@@ -30,7 +33,9 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
     momentAverages,
     finalAverage,
     getGradeValue,
+    getLevelingValue,
     onGradeChange,
+    onLevelingChange,
     collapsedMoments,
     isEditable,
     selectedSkillIds,
@@ -39,18 +44,20 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
     const [showSkillSelector, setShowSkillSelector] = useState(false);
 
     const isConsolidated = finalAverage >= 3.7;
+    const isLevelingApplied = student.results?.isLevelingApplied;
     const currentSubject = station.subjects?.find(s => s.id === selectedSubjectId);
     
-    const currentLevel = useMemo(() => {
-        if (!selectedCourse) return null;
-        const firstChar = selectedCourse.charAt(0).toUpperCase();
+    const studentBaseLevel = useMemo(() => {
+        const levelCode = student.academic_level || (selectedCourse ? selectedCourse.split('-')[0] : null);
+        if (!levelCode) return null;
+        const firstChar = levelCode.charAt(0).toUpperCase();
         return Object.values(Level).find(l => l === firstChar) || null;
-    }, [selectedCourse]);
+    }, [student.academic_level, selectedCourse]);
 
     const skills = useMemo(() => {
-        if (!currentSubject?.skills || !currentLevel) return [];
-        return currentSubject.skills.filter(s => s.level === currentLevel);
-    }, [currentSubject, currentLevel]);
+        if (!currentSubject?.skills || !studentBaseLevel) return [];
+        return currentSubject.skills.filter(s => s.level === studentBaseLevel);
+    }, [currentSubject, studentBaseLevel]);
 
     const handleInputChange = (slotId: string, value: string) => {
       if (!isEditable) return;
@@ -59,15 +66,32 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
       }
     };
 
+    const handleLevelingInputChange = (value: string) => {
+        if (!isEditable) return;
+        // La nivelación permite cualquier valor pero solo >= 3.7 dispara el override
+        onLevelingChange(student.id, value);
+    };
+
     return (
-      <tr className="hover:bg-slate-50 transition-colors group">
+      <tr className={`hover:bg-slate-50 transition-colors group ${isLevelingApplied ? 'bg-amber-50/20' : ''}`}>
         <td className="p-6 sticky left-0 z-20 bg-white border-r border-slate-50 shadow-[4px_0_8px_rgba(0,0,0,0.02)] group-hover:bg-slate-50 transition-colors">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-blue-50 text-primary rounded-full flex items-center justify-center font-black text-xs relative overflow-hidden shrink-0">
+            <div className="w-12 h-12 bg-blue-50 text-primary rounded-2xl flex items-center justify-center font-black text-sm relative overflow-hidden shrink-0 shadow-sm border border-blue-100">
               {student.full_name?.charAt(0)}
               {!isEditable && <div className="absolute inset-0 bg-rose-500/10 flex items-center justify-center text-rose-500"><Lock size={12} /></div>}
             </div>
-            <p className="font-bold text-slate-800 text-sm whitespace-nowrap">{student.full_name}</p>
+            <div className="flex flex-col">
+              <p className="font-black text-slate-800 text-sm whitespace-nowrap leading-tight mb-1">{student.full_name}</p>
+              <div className="flex items-center gap-1.5">
+                <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                  Nivel {student.academic_level || '-'}
+                </span>
+                <span className={`flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${student.modality === 'RS' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
+                  {student.modality === 'RS' ? <MapPin size={8} /> : <Home size={8} />}
+                  {student.atelier || 'Casa'}
+                </span>
+              </div>
+            </div>
           </div>
         </td>
 
@@ -113,10 +137,32 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
           );
         })}
 
-        <td className="p-6 text-center font-black bg-blue-50/30 border-l min-w-[80px]">
-          <span className={`text-xl ${finalAverage >= 3.7 ? 'text-primary' : 'text-slate-500'}`}>
+        {/* COLUMNA NIVELACION */}
+        <td className="p-2 border-l border-r border-slate-100 bg-amber-50/30 w-[100px] text-center">
+            <input
+                type="number"
+                step="0.1"
+                min="1.0"
+                max="5.0"
+                placeholder="0.0"
+                disabled={!isEditable}
+                value={getLevelingValue(student.id) || ''}
+                onChange={e => handleLevelingInputChange(e.target.value)}
+                className={`w-full text-center py-2 rounded-xl text-sm font-black border-2 outline-none transition-all shadow-sm ${
+                !isEditable ? 'bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white border-amber-100 focus:border-amber-400 text-amber-700'
+                }`}
+            />
+        </td>
+
+        <td className="p-6 text-center font-black bg-blue-50/30 border-l min-w-[80px] relative">
+          <span className={`text-xl ${isLevelingApplied ? 'text-amber-600' : (finalAverage >= 3.7 ? 'text-primary' : 'text-slate-500')}`}>
             {finalAverage > 0 ? finalAverage.toFixed(1) : '0.0'}
           </span>
+          {isLevelingApplied && (
+            <div className="absolute top-1 right-1">
+                <Sparkles size={12} className="text-amber-500" />
+            </div>
+          )}
         </td>
 
         <td className="p-6 text-center border-l bg-slate-50/30">
@@ -141,9 +187,9 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
           {showSkillSelector && (
             <div className="absolute top-full right-0 z-50 mt-2 w-72 bg-white rounded-3xl shadow-2xl border border-slate-100 p-5 animate-in slide-in-from-top-2 duration-200">
                <div className="flex justify-between items-center mb-4 border-b pb-2">
-                  <div className="flex flex-col">
+                  <div className="flex flex-col text-left">
                       <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Habilidades</span>
-                      <span className="text-[9px] font-bold text-primary uppercase">Nivel {currentLevel}</span>
+                      <span className="text-[9px] font-bold text-primary uppercase">Nivel {studentBaseLevel || student.academic_level}</span>
                   </div>
                   <button onClick={() => setShowSkillSelector(false)} className="text-slate-300 hover:text-slate-900"><X size={16} /></button>
                </div>
@@ -159,7 +205,7 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
                   )) : (
                     <div className="text-center py-6">
                         <Target size={24} className="mx-auto text-slate-200 mb-2" />
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">Sin habilidades para el Grado {currentLevel}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Sin habilidades para el Nivel {studentBaseLevel || '?'}</p>
                     </div>
                   )}
                </div>

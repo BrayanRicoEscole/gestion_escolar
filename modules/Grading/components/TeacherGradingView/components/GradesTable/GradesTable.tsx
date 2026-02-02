@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Station } from '../../../../types';
 import { TableHeader } from './TableHeader';
@@ -9,7 +10,9 @@ interface GradesTableProps {
   selectedSubjectId: string;
   selectedCourse: string;
   getGradeValue: (studentId: string, slotId: string, subjectId: string) => string;
+  getLevelingValue: (studentId: string) => string;
   onGradeChange: (studentId: string, slotId: string, subjectId: string, value: string) => void;
+  onLevelingChange: (studentId: string, value: string) => void;
   collapsedMoments: Set<string>;
   onToggleMoment: (id: string) => void;
   isEditable: boolean;
@@ -23,7 +26,9 @@ export const GradesTable: React.FC<GradesTableProps> = React.memo(({
   selectedSubjectId,
   selectedCourse,
   getGradeValue,
+  getLevelingValue,
   onGradeChange,
+  onLevelingChange,
   collapsedMoments,
   onToggleMoment,
   isEditable,
@@ -50,7 +55,9 @@ export const GradesTable: React.FC<GradesTableProps> = React.memo(({
               momentAverages={student.results?.moments ?? {}}
               finalAverage={student.results?.final ?? 0}
               getGradeValue={getGradeValue}
+              getLevelingValue={getLevelingValue}
               onGradeChange={onGradeChange}
+              onLevelingChange={onLevelingChange}
               collapsedMoments={collapsedMoments}
               isEditable={isEditable}
               selectedSkillIds={getSkillSelectionsForStudent(student.id)}

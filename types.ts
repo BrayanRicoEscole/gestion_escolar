@@ -1,3 +1,4 @@
+
 export enum Area {
   STEAM = 'Steam',
   CLEPE = 'ClePe',
@@ -17,7 +18,6 @@ export enum Modality {
   RS = 'Renfort En Sede (RS)'
 }
 
-// Los niveles ahora corresponden a las letras de los cursos (C, D, E, F...)
 export enum Level {
   C = 'C',
   D = 'D',
@@ -92,12 +92,23 @@ export interface Student {
   full_name: string;
   document: string;
   avatar?: string;
+  academic_level?: string; 
+  grade?: string;          
+  atelier?: string;        
+  modality?: string;       
 }
 
 export interface GradeEntry {
   studentId: string;
   slotId: string;
   subjectId: string;
+  value: number | null;
+}
+
+export interface LevelingGrade {
+  studentId: string;
+  subjectId: string;
+  stationId: string;
   value: number | null;
 }
 
