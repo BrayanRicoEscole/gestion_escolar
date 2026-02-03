@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { SchoolYear, Student, GradeEntry, SkillSelection, LevelingGrade } from '../types';
-import { api } from '../services/api';
+import { getSchoolYear, getStudents, getGrades, getSkillSelections,getLevelingGrades,saveLevelingGrades,saveGrades,saveSkillSelections } from '../services/api';
 
 export const useGrading = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -26,11 +26,11 @@ export const useGrading = () => {
     const fetchData = async () => {
       try {
         const [sy, st, gr, sk, lv] = await Promise.all([
-          api.getSchoolYear(),
-          api.getStudents(),
-          api.getGrades(),
-          api.getSkillSelections(),
-          api.getLevelingGrades()
+          getSchoolYear(),
+          getStudents(),
+          getGrades(),
+          getSkillSelections(),
+          getLevelingGrades()
         ]);
         
         setSchoolYear(sy);
@@ -138,14 +138,14 @@ export const useGrading = () => {
       .map(s => s.skillId);
   };
 
-  const saveGrades = async () => {
+  const handlesaveGrades = async () => {
     console.log("[useGrading] Iniciando guardado masivo de notas y habilidades...");
     setIsSaving(true);
     try {
       await Promise.all([
-        api.saveGrades(grades),
-        api.saveLevelingGrades(levelingGrades),
-        api.saveSkillSelections(skillSelections, selectedSubjectId, selectedStationId)
+        saveGrades(grades),
+        saveLevelingGrades(levelingGrades),
+        saveSkillSelections(skillSelections, selectedSubjectId, selectedStationId)
       ]);
       console.log("[useGrading] Guardado masivo exitoso");
       setIsSaving(false);
@@ -183,6 +183,6 @@ export const useGrading = () => {
     getLevelingValue,
     toggleSkillSelection,
     getSkillSelectionsForStudent,
-    saveGrades
+    handlesaveGrades
   };
 };

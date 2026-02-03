@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { SchoolYear, CommentTemplate } from '../types';
-import { api } from '../services/api';
+import { getSchoolYear, getCommentTemplates, updateSchoolYear, saveCommentTemplates } from '../services/api';
 
 export const useGradingAdmin = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -19,10 +19,10 @@ export const useGradingAdmin = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await api.getSchoolYear();
+        const data = await getSchoolYear();
         setSchoolYear(data);
         if (data) {
-          const templates = await api.getCommentTemplates(data.id);
+          const templates = await getCommentTemplates(data.id);
           setCommentTemplates(templates);
         }
       } catch (error) {
@@ -39,8 +39,8 @@ export const useGradingAdmin = () => {
     setIsSaving(true);
     try {
       await Promise.all([
-        api.updateSchoolYear(schoolYear),
-        api.saveCommentTemplates(commentTemplates)
+        updateSchoolYear(schoolYear),
+        saveCommentTemplates(commentTemplates)
       ]);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);

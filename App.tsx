@@ -7,25 +7,29 @@ import {
 import GradingModule from './modules/Grading/GradingModule';
 import TeacherGradingView from './modules/Grading/components/TeacherGradingView/TeacherGradingView';
 import TeacherCommentsView from './modules/Comments/TeacherCommentsView';
+import { ActiveStudentsModule } from './modules/Students/ActiveStudentsModule';
 
 type Module = 'dashboard' | 'admissions' | 'active_students' | 'retired_students' | 'history' | 'reports' | 'macubim' | 'grading' | 'comments';
 type UserRole = 'admin' | 'teacher';
 
 const App: React.FC = () => {
-  const [activeModule, setActiveModule] = useState<Module>('grading');
+  const [activeModule, setActiveModule] = useState<Module>('active_students');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userRole, setUserRole] = useState<UserRole>('admin');
 
   const modules = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, status: 'development' },
     { id: 'admissions', name: 'Admisiones', icon: ClipboardList, status: 'development' },
-    { id: 'active_students', name: 'Estudiantes Activos', icon: Users, status: 'development' },
+    { id: 'active_students', name: 'Estudiantes Activos', icon: Users, status: 'active' },
     { id: 'grading', name: 'Calificaciones', icon: Settings, status: 'active' },
     { id: 'comments', name: 'Comentarios', icon: MessageSquareText, status: 'active' },
     { id: 'reports', name: 'Reportes Académicos', icon: GraduationCap, status: 'development' },
   ];
 
   const renderContent = () => {
+    if (activeModule === 'active_students') {
+      return <ActiveStudentsModule />;
+    }
     if (activeModule === 'grading') {
       return userRole === 'admin' ? <GradingModule /> : <TeacherGradingView />;
     }
@@ -58,7 +62,7 @@ const App: React.FC = () => {
         <div className="bg-white p-12 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center text-center max-w-md">
           <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6"><AlertCircle className="w-10 h-10 text-amber-500" /></div>
           <h2 className="text-2xl font-bold text-slate-800 mb-2">Módulo en Desarrollo</h2>
-          <button onClick={() => setActiveModule('grading')} className="mt-8 px-6 py-3 bg-primary text-white rounded-xl shadow-lg font-medium hover:bg-primary/90 transition-all active:scale-95">Ir a Calificaciones</button>
+          <button onClick={() => setActiveModule('active_students')} className="mt-8 px-6 py-3 bg-primary text-white rounded-xl shadow-lg font-medium hover:bg-primary/90 transition-all active:scale-95">Ir a Estudiantes</button>
         </div>
       </div>
     );
@@ -70,7 +74,7 @@ const App: React.FC = () => {
         <div className="p-6 flex items-center justify-between">
           <div className={`flex items-center gap-3 ${!sidebarOpen && 'hidden'}`}>
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg"><GraduationCap className="text-white w-6 h-6" /></div>
-            <h1 className="font-bold text-xl text-slate-800 tracking-tight">EduGrade 2026</h1>
+            <h1 className="font-bold text-xl text-slate-800 tracking-tight text-black">EduGrade 2026</h1>
           </div>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400">{sidebarOpen ? <X size={20} /> : <Menu size={20} />}</button>
         </div>

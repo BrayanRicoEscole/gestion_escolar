@@ -5,7 +5,7 @@ import {
   UserCircle,  Sprout
 } from 'lucide-react';
 import { useGrading } from '../../hooks/useGrading';
-import { api } from '../../services/api';
+import { saveStudentComment } from '../../services/api';
 
 import { GradingHeader } from '../Grading/components/TeacherGradingView/components/GradingHeader';
 import { GradingFilters } from '../Grading/components/TeacherGradingView/components/GradingFilters';
@@ -101,7 +101,7 @@ export const TeacherCommentsView: React.FC = () => {
     setIsSaving(true);
     console.log("[UI] Guardando reporte cualitativo...");
     try {
-      await api.saveStudentComment(currentComment);
+      await saveStudentComment(currentComment);
       console.log("[UI] Guardado exitoso.");
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);

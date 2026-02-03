@@ -36,7 +36,7 @@ const TeacherGradingView: React.FC = () => {
     getLevelingValue = () => '',
     handleGradeChange = () => {},
     handleLevelingChange = () => {},
-    saveGrades = async () => false,
+    handlesaveGrades = async () => false,
     toggleSkillSelection = () => {},
     getSkillSelectionsForStudent = () => []
   } = grading ?? {};
@@ -65,7 +65,7 @@ const TeacherGradingView: React.FC = () => {
 
   const onSave = async () => {
     if (!isWithinDateRange) return;
-    const success = await saveGrades();
+    const success = await handlesaveGrades();
     if (success) {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);

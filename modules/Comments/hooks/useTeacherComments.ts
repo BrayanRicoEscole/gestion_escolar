@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../../services/api';
+import { getCommentTemplates, getStudentComments } from '../../../services/api';
 import { StudentComment, CommentTemplate } from '../../../types';
 
 export function useTeacherComments({
@@ -20,8 +20,8 @@ export function useTeacherComments({
 
     (async () => {
       const [tpls, cms] = await Promise.all([
-        api.getCommentTemplates(schoolYear.id),
-        api.getStudentComments(stationId),
+        getCommentTemplates(schoolYear.id),
+        getStudentComments(stationId),
       ]);
       setTemplates(tpls);
       setComments(cms);

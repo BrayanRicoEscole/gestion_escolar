@@ -88,14 +88,58 @@ export interface SchoolYear {
 }
 
 export interface Student {
-  id: string;
+  id?: string;
   full_name: string;
   document: string;
-  avatar?: string;
+  avatar_url?: string;
   academic_level?: string; 
   grade?: string;          
   atelier?: string;        
-  modality?: string;       
+  modality?: string;
+  // Campos extendidos del Spreadsheet
+  calendario?: string;
+  calendario_grupo?: string;
+  colegio?: string;
+  rama?: string;
+  tl?: string;
+  contrato?: string;
+  periodo?: string;
+  cuenta_institucional?: string;
+  nacimiento?: string;
+  edad?: string;
+  rh?: string;
+  programa_raices?: string;
+  categoria_simat?: string;
+  dx1?: string;
+  dx2?: string;
+  complemento_cualitativo?: string;
+  programa?: string;
+  estado_actual?: string;
+  inicio?: string;
+  fin?: string;
+  tipo_id_estudiante?: string;
+  cedula_a?: string;
+  acudiente_academico?: string;
+  correo_a?: string;
+  telefono_a?: string;
+  acudiente_b?: string;
+  correo_b?: string;
+  telefono_b?: string;
+  cedula_financiero?: string;
+  acudiente_financiero?: string;
+  correo_financiero?: string;
+  telefono_financiero?: string;
+  lugar_nacimiento?: string;
+  fecha_expedicion?: string;
+  lugar_expedicion?: string;
+  genero?: string;
+  proceso?: string;
+  dossier?: string;
+  paz_y_salvo?: string;
+  codigo_estudiantil?: string;
+  poliza?: string;
+  fecha_activacion_poliza?: string;
+  fecha_renovacion_poliza?: string;
 }
 
 export interface GradeEntry {

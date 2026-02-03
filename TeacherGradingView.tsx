@@ -32,13 +32,15 @@ const TeacherGradingView: React.FC = () => {
     isSaving = false,
     handleGradeChange = () => {},
     getGradeValue = () => '',
-    saveGrades = async () => false
+    // Fix: changed property name from saveGrades to handlesaveGrades to match useGrading hook return type
+    handlesaveGrades = async () => false
   } = grading ?? {};
 
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const onSave = async () => {
-    const success = await saveGrades();
+    // Fix: call handlesaveGrades instead of non-existent saveGrades
+    const success = await handlesaveGrades();
     if (success) {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
