@@ -139,6 +139,7 @@ export const useGrading = () => {
   };
 
   const saveGrades = async () => {
+    console.log("[useGrading] Iniciando guardado masivo de notas y habilidades...");
     setIsSaving(true);
     try {
       await Promise.all([
@@ -146,10 +147,11 @@ export const useGrading = () => {
         api.saveLevelingGrades(levelingGrades),
         api.saveSkillSelections(skillSelections, selectedSubjectId, selectedStationId)
       ]);
+      console.log("[useGrading] Guardado masivo exitoso");
       setIsSaving(false);
       return true;
     } catch (e) {
-      console.error("Error saving data:", e);
+      console.error("[useGrading] Error crítico al guardar datos:", e);
       setIsSaving(false);
       return false;
     }

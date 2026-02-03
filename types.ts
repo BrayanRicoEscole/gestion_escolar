@@ -118,3 +118,31 @@ export interface SkillSelection {
   stationId: string;
   skillId: string;
 }
+
+export interface CommentTemplate {
+  id: string;
+  schoolYearId: string;
+  academicLevel: string;
+  fieldKey: string;
+  content: string;
+}
+
+export type CommentStatus = 'draft' | 'analyzed' | 'improved' | 'approved' | 'rejected';
+
+export interface StudentComment {
+  studentId: string;
+  stationId: string;
+  convivenciaGrade: number | null;
+  academicCons: string;
+  academicNon: string;
+  emotionalSkills: string;
+  talents: string;
+  socialInteraction: string;
+  challenges: string;
+  piarDesc: string;
+  learningCropDesc: string;
+  comentary?: string;
+  comentaryStatus?: CommentStatus;
+  comentaryQuality?: number;
+  aiSuggestion?: string;
+}
