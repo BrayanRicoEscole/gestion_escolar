@@ -204,7 +204,16 @@ export const TeacherCommentsView: React.FC = () => {
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Escala: 1 o 5 solamente</p>
                   </div>
                 </div>
-                <input type="text" inputMode="numeric" maxLength={1} value={currentComment.convivenciaGrade || ''} onChange={e => { const v = e.target.value; if (v === '' || v === '1' || v === '5') updateField('convivenciaGrade', v === '' ? null : Number(v)); }} disabled={!isEditable} className="w-32 p-6 text-center text-4xl font-black rounded-3xl bg-slate-50 border-none focus:ring-4 focus:ring-amber-200 outline-none transition-all shadow-inner text-black" placeholder="-" />
+                <input 
+                  type="text" 
+                  inputMode="numeric" 
+                  maxLength={1} 
+                  value={currentComment.convivenciaGrade || ''} 
+                  onChange={e => updateField('convivenciaGrade', e.target.value)} 
+                  disabled={!isEditable} 
+                  className="w-32 p-6 text-center text-4xl font-black rounded-3xl bg-slate-50 border-none focus:ring-4 focus:ring-amber-200 outline-none transition-all shadow-inner text-black" 
+                  placeholder="-" 
+                />
               </section>
 
             </div>

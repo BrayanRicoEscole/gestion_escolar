@@ -14,7 +14,10 @@
     "react": "^19.2.4",
     "@supabase/supabase-js": "2.48.1",
     "@google/genai": "^1.39.0",
-    "types": "^0.1.1"
+    "types": "^0.1.1",
+    "docxtemplater": "^3.41.0",
+    "pizzip": "^3.1.4",
+    "file-saver": "^2.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

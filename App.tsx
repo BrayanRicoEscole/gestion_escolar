@@ -2,12 +2,13 @@
 import React, { useState } from 'react';
 import { 
   GraduationCap, Users, UserMinus, BarChart3, ClipboardList, HeartHandshake, Settings, LayoutDashboard,
-  Menu, X, ChevronRight, AlertCircle, UserCircle, ShieldCheck, MessageSquareText
+  Menu, X, ChevronRight, AlertCircle, UserCircle, ShieldCheck, MessageSquareText, FileText
 } from 'lucide-react';
 import GradingModule from './modules/Grading/GradingModule';
 import TeacherGradingView from './modules/Grading/components/TeacherGradingView/TeacherGradingView';
 import TeacherCommentsView from './modules/Comments/TeacherCommentsView';
 import { ActiveStudentsModule } from './modules/Students/ActiveStudentsModule';
+import { ReportsModule } from './modules/Reports/ReportsModule';
 
 type Module = 'dashboard' | 'admissions' | 'active_students' | 'retired_students' | 'history' | 'reports' | 'macubim' | 'grading' | 'comments';
 type UserRole = 'admin' | 'teacher';
@@ -23,7 +24,7 @@ const App: React.FC = () => {
     { id: 'active_students', name: 'Estudiantes Activos', icon: Users, status: 'active' },
     { id: 'grading', name: 'Calificaciones', icon: Settings, status: 'active' },
     { id: 'comments', name: 'Comentarios', icon: MessageSquareText, status: 'active' },
-    { id: 'reports', name: 'Reportes Académicos', icon: GraduationCap, status: 'development' },
+    { id: 'reports', name: 'Reportes Académicos', icon: FileText, status: 'active' },
   ];
 
   const renderContent = () => {
@@ -34,7 +35,6 @@ const App: React.FC = () => {
       return userRole === 'admin' ? <GradingModule /> : <TeacherGradingView />;
     }
     if (activeModule === 'comments') {
-      // El administrador gestiona las plantillas, el docente redacta
       return userRole === 'admin' ? (
         <div className="flex flex-col items-center justify-center h-full text-slate-500 animate-in fade-in">
            <div className="text-center p-12 bg-white rounded-[3rem] border border-slate-100 shadow-sm max-w-xl">
@@ -55,6 +55,9 @@ const App: React.FC = () => {
            </div>
         </div>
       ) : <TeacherCommentsView />;
+    }
+    if (activeModule === 'reports') {
+      return <ReportsModule />;
     }
 
     return (

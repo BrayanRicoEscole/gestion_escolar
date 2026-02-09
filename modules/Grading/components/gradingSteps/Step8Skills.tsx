@@ -75,15 +75,15 @@ export const Step8Skills: React.FC<{
       <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
         <div className="flex items-center gap-6">
            <div className="flex flex-col gap-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">1. Estación</label>
-              <select value={stationIdx} onChange={(e) => onSelectStation(Number(e.target.value))} className="p-3 bg-slate-50 border-none rounded-xl text-xs font-black focus:ring-2 focus:ring-primary/20 outline-none min-w-[150px]">
+              <label className="text-[9px] font-black text-black text-slate-400 uppercase tracking-widest">1. Estación</label>
+              <select value={stationIdx} onChange={(e) => onSelectStation(Number(e.target.value))} className="p-3 bg-slate-50 border-none rounded-xl text-xs font-black text-black focus:ring-2 focus:ring-primary/20 outline-none min-w-[150px]">
                 {year.stations.map((s, i) => <option key={s.id} value={i}>{s.name}</option>)}
               </select>
            </div>
            <ChevronRight className="text-slate-200" />
            <div className="flex flex-col gap-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">2. Materia</label>
-              <select value={subjectIdx} onChange={(e) => onSelectSubject(Number(e.target.value))} className="p-3 bg-slate-50 border-none rounded-xl text-xs font-black focus:ring-2 focus:ring-primary/20 outline-none min-w-[200px]">
+              <label className="text-[9px] font-black text-black text-slate-400 uppercase tracking-widest">2. Materia</label>
+              <select value={subjectIdx} onChange={(e) => onSelectSubject(Number(e.target.value))} className="p-3 bg-slate-50 border-none rounded-xl text-xs font-black text-black focus:ring-2 focus:ring-primary/20 outline-none min-w-[200px]">
                 {currentStation?.subjects.map((s, i) => <option key={s.id} value={i}>{s.name}</option>)}
               </select>
            </div>

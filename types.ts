@@ -96,7 +96,6 @@ export interface Student {
   grade?: string;          
   atelier?: string;        
   modality?: string;
-  // Campos extendidos del Spreadsheet
   calendario?: string;
   calendario_grupo?: string;
   colegio?: string;
@@ -140,6 +139,30 @@ export interface Student {
   poliza?: string;
   fecha_activacion_poliza?: string;
   fecha_renovacion_poliza?: string;
+}
+
+export interface ReportTemplate {
+  id: string;
+  name: string;
+  file_url: string;
+  variables: string[];
+  created_at: string;
+}
+
+export interface AcademicReport {
+  id: string;
+  student_id: string;
+  station_id: string;
+  template_id: string;
+  pdf_url?: string;
+  status: 'pending' | 'generated' | 'sent' | 'failed';
+  validation_logs: {
+    grades_complete: boolean;
+    comments_approved: boolean;
+    paz_y_salvo: boolean;
+    station_closed: boolean;
+  };
+  sent_at?: string;
 }
 
 export interface GradeEntry {

@@ -19,7 +19,7 @@ export const useGrading = () => {
   const [selectedModality, setSelectedModality] = useState<string>('all');
   const [selectedAcademicLevel, setSelectedAcademicLevel] = useState<string>('all');
 
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving, setIsLoadingSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -140,7 +140,7 @@ export const useGrading = () => {
 
   const handlesaveGrades = async () => {
     console.log("[useGrading] Iniciando guardado masivo de notas y habilidades...");
-    setIsSaving(true);
+    setIsLoadingSaving(true);
     try {
       await Promise.all([
         saveGrades(grades),
@@ -148,11 +148,11 @@ export const useGrading = () => {
         saveSkillSelections(skillSelections, selectedSubjectId, selectedStationId)
       ]);
       console.log("[useGrading] Guardado masivo exitoso");
-      setIsSaving(false);
+      setIsLoadingSaving(false);
       return true;
     } catch (e) {
       console.error("[useGrading] Error crítico al guardar datos:", e);
-      setIsSaving(false);
+      setIsLoadingSaving(false);
       return false;
     }
   };
@@ -176,7 +176,10 @@ export const useGrading = () => {
     setSelectedAcademicLevel,
     searchTerm,
     setSearchTerm,
-    isSaving,
+    isSaving: isSaving,
+    grades,
+    /* Added skillSelections to the return object to allow consumption by report generation modules */
+    skillSelections,
     handleGradeChange,
     handleLevelingChange,
     getGradeValue,

@@ -36,7 +36,7 @@ export const Step7GradeSlots: React.FC<{
               <select value={stationIdx} onChange={(e) => onSelectStation(Number(e.target.value))} className="w-full p-3 rounded-xl text-[10px] text-black font-black border border-slate-200 bg-white focus:ring-2 focus:ring-primary/20">
                 {year.stations.map((s, i) => <option key={s.id} value={i}>{s.name}</option>)}
               </select>
-              <select value={momentIdx} onChange={(e) => onSelectMoment(Number(e.target.value))} className="w-full p-3 rounded-xl text-[10px] font-black border border-slate-200 bg-white focus:ring-2 focus:ring-primary/20">
+              <select value={momentIdx} onChange={(e) => onSelectMoment(Number(e.target.value))} className="w-full p-3 rounded-xl text-[10px] font-black text-black border border-slate-200 bg-white focus:ring-2 focus:ring-primary/20">
                 {currentStation?.moments.map((m, i) => <option key={m.id} value={i}>{m.name.split('/')[0]}</option>)}
               </select>
             </div>
@@ -49,7 +49,7 @@ export const Step7GradeSlots: React.FC<{
                 <button 
                   key={se.id} 
                   onClick={() => onSelectSection(i)} 
-                  className={`w-full text-left px-6 py-5 rounded-[2rem] text-sm font-black flex items-center justify-between transition-all ${sectionIdx === i ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'}`}
+                  className={`w-full text-left px-6 py-5 rounded-[2rem] text-sm font-black text-black flex items-center justify-between transition-all ${sectionIdx === i ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'}`}
                 >
                   <div className="flex items-center gap-3 truncate">
                     <Layers size={14} className={sectionIdx === i ? 'text-primary' : 'text-slate-300'} />

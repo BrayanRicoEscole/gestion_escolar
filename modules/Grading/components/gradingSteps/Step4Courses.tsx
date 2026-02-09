@@ -13,7 +13,7 @@ const CATEGORIES = [
 export const Step4Courses: React.FC<{ 
   station: any, 
   subjectIdx: number, 
-  onToggle: (idx: number, code: string) => void 
+  onToggle: (idx: number, code: string | string[]) => void 
 }> = ({ station, subjectIdx, onToggle }) => {
   const [activeCategoryId, setActiveCategoryId] = useState('petine');
   const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -24,17 +24,24 @@ export const Step4Courses: React.FC<{
   , [activeCategoryId]);
 
   const toggleAllInCategory = (modalitySuffix: string, shouldAdd: boolean) => {
+    if (!subject) return;
+    
+    const codesToToggle: string[] = [];
     activeCategory.range.forEach(levelLetter => {
       numbers.forEach(n => {
         const code = `${levelLetter}${n}-${modalitySuffix}`;
-        const currentlyActive = subject?.courses?.includes(code);
+        const currentlyActive = subject.courses?.includes(code);
         if (shouldAdd && !currentlyActive) {
-          onToggle(subjectIdx, code);
+          codesToToggle.push(code);
         } else if (!shouldAdd && currentlyActive) {
-          onToggle(subjectIdx, code);
+          codesToToggle.push(code);
         }
       });
     });
+    
+    if (codesToToggle.length > 0) {
+      onToggle(subjectIdx, codesToToggle);
+    }
   };
 
   return (
@@ -46,7 +53,7 @@ export const Step4Courses: React.FC<{
             <span className="text-[10px] font-black text-primary uppercase tracking-widest">Configuración de Grupos</span>
           </div>
           <h4 className="font-black text-slate-800 text-3xl tracking-tight">Cursos y Modalidades</h4>
-          <p className="text-slate-400 text-sm font-bold mt-1">Defina qué grupos pertenecen a la materia {subject?.name}</p>
+          <p className="text-slate-400 text-sm font-bold mt-1">Defina qué grupos pertenecen a la materia {subject?.name || 'sin seleccionar'}</p>
         </div>
 
         <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 shadow-sm">

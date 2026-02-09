@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from 'react';
 import { getCommentTemplates, getStudentComments } from '../../../services/api';
 import { StudentComment, CommentTemplate } from '../../../types';
@@ -63,9 +64,12 @@ export function useTeacherComments({
   }, [comments, selectedStudentId, stationId]);
 
   const updateField = (field: keyof StudentComment, value: any) => {
+    let finalValue = value;
+
     if (field === 'convivenciaGrade') {
-      if (value !== '' && value !== '1' && value !== '5') return;
-      value = value === '' ? null : Number(value);
+      const valStr = value === null || value === undefined ? '' : String(value);
+      if (valStr !== '' && valStr !== '1' && valStr !== '5') return;
+      finalValue = valStr === '' ? null : Number(valStr);
     }
 
     setComments(prev => {
@@ -76,7 +80,7 @@ export function useTeacherComments({
             c.stationId === stationId
           )
       );
-      return [...rest, { ...currentComment!, [field]: value }];
+      return [...rest, { ...currentComment!, [field]: finalValue }];
     });
   };
 
