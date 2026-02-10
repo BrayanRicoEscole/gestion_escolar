@@ -51,9 +51,9 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
     station?.subjects?.find(s => s.id === selectedSubjectId)
   , [station, selectedSubjectId]);
 
-  const currentSubjectCourses = currentSubject?.courses || [];
+  const currentSubjectCourses = useMemo(() => currentSubject?.courses || [], [currentSubject]);
 
-  // Extraer niveles y modalidades únicos permitidos para esta asignatura
+  // Extraer niveles y modalidades únicos permitidos para esta asignatura basado estrictamente en 'courses'
   const { availableLevels, availableModalities } = useMemo(() => {
     const levels = new Set<string>();
     const modalities = new Set<string>();
@@ -72,7 +72,6 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
 
   return (
     <div className="space-y-4 mb-8">
-      {/* Filtros Principales Académicos */}
       <Card className="flex flex-wrap items-center gap-6" padding="sm">
         <div className="flex items-center gap-4 border-r pr-6">
           <Filter size={20} className="text-slate-400" />
@@ -87,7 +86,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
             <select
               value={selectedStationId}
               onChange={e => onStationChange(e.target.value)}
-              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black focus:ring-2 focus:ring-primary/20 outline-none"
+              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
               {schoolYear.stations?.map(st => (
                 <option key={st.id} value={st.id}>{st.name}</option>
@@ -100,7 +99,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
             <select
               value={selectedSubjectId}
               onChange={e => onSubjectChange(e.target.value)}
-              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black focus:ring-2 focus:ring-primary/20 outline-none"
+              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
               {station.subjects?.map(subject => (
                 <option key={subject.id} value={subject.id}>{subject.name}</option>
@@ -109,22 +108,16 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Grupo/Curso</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Grupo Habilitado</label>
             <select
               value={selectedCourse}
               onChange={e => onCourseChange(e.target.value)}
-              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black focus:ring-2 focus:ring-primary/20 outline-none"
+              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              {currentSubjectCourses.length > 0 ? (
-                <>
-                  <option value="">Todos los grupos de {currentSubject?.name}</option>
-                  {currentSubjectCourses.map(course => (
-                    <option key={course} value={course}>{course}</option>
-                  ))}
-                </>
-              ) : (
-                <option value="">Sin cursos</option>
-              )}
+              <option value="">Todos los grupos de {currentSubject?.name}</option>
+              {currentSubjectCourses.map(course => (
+                <option key={course} value={course}>{course}</option>
+              ))}
             </select>
           </div>
 
@@ -133,7 +126,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
             <select
               value={consolidationFilter}
               onChange={e => onConsolidationChange(e.target.value as ConsolidationStatus)}
-              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black focus:ring-2 focus:ring-primary/20 outline-none"
+              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
               <option value="all">Todos los estados</option>
               <option value="consolidated">Consolidado (≥ 3.7)</option>
@@ -143,7 +136,6 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
         </div>
       </Card>
 
-      {/* Filtros de Segmentación de Estudiantes */}
       <Card className="flex flex-wrap items-center gap-6" padding="sm">
         <div className="flex items-center gap-4 border-r pr-6">
           <Layers size={20} className="text-slate-400" />
@@ -160,7 +152,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
             <select
               value={selectedAtelier}
               onChange={e => onAtelierChange(e.target.value)}
-              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black focus:ring-2 focus:ring-primary/20 outline-none"
+              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
               <option value="all">Todos los Ateliers</option>
               <option value="Mónaco">Mónaco</option>
@@ -177,23 +169,22 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
             <select
               value={selectedModality}
               onChange={e => onModalityChange(e.target.value)}
-              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black focus:ring-2 focus:ring-primary/20 outline-none"
+              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              <option value="all">Todas ({availableModalities.join(', ')})</option>
-              {availableModalities.map(m => (
-                <option key={m} value={m}>{m === 'RS' ? 'Renfort Sede (RS)' : 'Renfort Casa (RC)'}</option>
-              ))}
+              <option value="all">Todas las permitidas</option>
+              {availableModalities.includes('RS') && <option value="RS">Renfort Sede (RS)</option>}
+              {availableModalities.includes('RC') && <option value="RC">Renfort Casa (RC)</option>}
             </select>
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Nivel Académico</label>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Nivel</label>
             <select
               value={selectedAcademicLevel}
               onChange={e => onAcademicLevelChange(e.target.value)}
-              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black focus:ring-2 focus:ring-primary/20 outline-none"
+              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              <option value="all">Todos ({availableLevels.join(', ')})</option>
+              <option value="all">Todos los permitidos</option>
               {availableLevels.map(lvl => (
                 <option key={lvl} value={lvl}>{lvl}</option>
               ))}
@@ -218,5 +209,3 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
     </div>
   );
 };
-
-GradingFilters.displayName = 'GradingFilters';

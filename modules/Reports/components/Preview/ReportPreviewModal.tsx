@@ -5,6 +5,7 @@ import { Student, SchoolYear, GradeEntry, StudentComment, Station, SkillSelectio
 import { useReport } from '../../hooks/useReports';
 import { useTemplates } from '../../hooks/useTemplates';
 import { useDocxGenerator } from '../../hooks/useDocxGenerator';
+import GlobalLearningReport from './template/GlobalLearningReport';
 
 interface Props {
   student: Student;
@@ -107,14 +108,14 @@ export const ReportPreviewModal: React.FC<Props> = ({
         {/* Papel del Reporte */}
         <div className="flex-1 overflow-y-auto bg-slate-100 p-12 custom-scrollbar print:bg-white print:p-0">
           <div id="printable-report" className="bg-white mx-auto shadow-2xl w-full max-w-[850px] min-h-[1100px] p-20 flex flex-col gap-12 print:shadow-none print:p-0 print:max-w-none">
-            
+            <GlobalLearningReport/>
             {/* Header Oficial */}
             <header className="flex justify-between items-start border-b-8 border-primary pb-10">
                <div className="space-y-2">
                   <h1 className="text-4xl font-black text-slate-900 tracking-tighter">RED DE COLEGIOS RENFORT</h1>
                   <p className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Institutional Academic Report</p>
                   <div className="pt-6 grid grid-cols-2 gap-x-8 gap-y-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Año Lectivo: <span className="text-slate-700">{schoolYear?.name}</span></p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Añooo Lectivo: <span className="text-slate-700">{schoolYear?.name}</span></p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase">Estación: <span className="text-slate-700">{currentStation.name}</span></p>
                   </div>
                </div>
