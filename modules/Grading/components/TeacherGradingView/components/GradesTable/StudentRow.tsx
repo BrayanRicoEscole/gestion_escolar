@@ -61,15 +61,20 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
 
     const handleInputChange = (slotId: string, value: string) => {
       if (!isEditable) return;
-      if (value === '' || value === '1' || value === '5') {
-        onGradeChange(student.id, slotId, selectedSubjectId, value);
-      }
+      
+      // Sanitización básica: solo permitir números, punto decimal o vacío
+      const sanitized = value.replace(/[^0-9.]/g, '');
+      
+      // Permitir cualquier entrada que sea un número válido o esté en proceso de serlo
+      // El hook useGrading se encargará de la persistencia real
+      console.log(`[UI] Input detectado: ${sanitized} para slot ${slotId}`);
+      onGradeChange(student.id, slotId, selectedSubjectId, sanitized);
     };
 
     const handleLevelingInputChange = (value: string) => {
         if (!isEditable) return;
-        // La nivelación permite cualquier valor pero solo >= 3.7 dispara el override
-        onLevelingChange(student.id, value);
+        const sanitized = value.replace(/[^0-9.]/g, '');
+        onLevelingChange(student.id, sanitized);
     };
 
     return (
@@ -108,7 +113,7 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
                       <td key={`${student.id}-${slot.id}`} className="p-2 border-r border-slate-50 w-20 text-center">
                         <input
                           type="text"
-                          maxLength={1}
+                          maxLength={3}
                           placeholder="-"
                           disabled={!isEditable}
                           value={getGradeValue(student.id, slot.id, selectedSubjectId) || ''}
@@ -140,10 +145,8 @@ export const StudentRow: React.FC<StudentRowProps> = React.memo(
         {/* COLUMNA NIVELACION */}
         <td className="p-2 border-l border-r border-slate-100 bg-amber-50/30 w-[100px] text-center">
             <input
-                type="number"
-                step="0.1"
-                min="1.0"
-                max="5.0"
+                type="text"
+                maxLength={3}
                 placeholder="0.0"
                 disabled={!isEditable}
                 value={getLevelingValue(student.id) || ''}

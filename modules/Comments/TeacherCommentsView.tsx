@@ -5,7 +5,6 @@ import {
   UserCircle,  Sprout
 } from 'lucide-react';
 import { useGrading } from '../../hooks/useGrading';
-import { saveStudentComment } from '../../services/api';
 
 import { GradingHeader } from '../Grading/components/TeacherGradingView/components/GradingHeader';
 import { GradingFilters } from '../Grading/components/TeacherGradingView/components/GradingFilters';
@@ -16,10 +15,7 @@ import { CommentSection } from './components/CommentSection';
 
 import { useTeacherComments } from './hooks/useTeacherComments';
 import { useDateLock } from './hooks/useDateLock';
-
 import { useMentorAI } from './hooks/useMentorAI';
-
-
 
 export const TeacherCommentsView: React.FC = () => {
   const grading = useGrading();
@@ -59,59 +55,33 @@ export const TeacherCommentsView: React.FC = () => {
     students: filteredStudents,
   });
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [showAISuggestion, setShowAISuggestion] = useState(false);
-
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [analysis, setAnalysis ] = useState<string  | null >(null);
 
-  
-
   const handleAIAction = async () => {
-  if (!currentComment) return;
+    if (!currentComment) return;
+    const result = await analyze(currentComment);
+    if (!result) return;
 
-  const result = await analyze(currentComment);
-  if (!result) return;
-
-  updateField('comentaryQuality', result.score);
-  updateField('aiSuggestion', result.improvedVersion);
-  updateField('comentaryStatus', 'analyzed');
-  setAiSuggestion(result.improvedVersion)
-  setAnalysis(result.analysis)
-  setShowAISuggestion(true);
-};
+    updateField('comentaryQuality', result.score);
+    updateField('aiSuggestion', result.improvedVersion);
+    updateField('comentaryStatus', 'analyzed');
+    setAiSuggestion(result.improvedVersion);
+    setAnalysis(result.analysis);
+    setShowAISuggestion(true);
+  };
 
   const acceptAISuggestion = () => {
-  if (aiSuggestion) return;
-
-  updateField('comentary', aiSuggestion);
-  
-  updateField('comentaryStatus', 'improved');
-  setAiSuggestion(null);
-  setAnalysis(null);
-  setShowAISuggestion(false);
-};
+    if (!aiSuggestion) return;
+    updateField('comentary', aiSuggestion);
+    updateField('comentaryStatus', 'improved');
+    setAiSuggestion(null);
+    setAnalysis(null);
+    setShowAISuggestion(false);
+  };
 
   const discardAISuggestion = () => setShowAISuggestion(false);
-
-  
-  const onSave = async () => {
-    if (!currentComment || !isEditable) return;
-    setIsSaving(true);
-    console.log("[UI] Guardando reporte cualitativo...");
-    try {
-      await saveStudentComment(currentComment);
-      console.log("[UI] Guardado exitoso.");
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error("[UI] Error al guardar:", err);
-      alert("Error al sincronizar con la base de datos.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const currentStudent = filteredStudents.find(s => s.id === selectedStudentId);
 
@@ -127,7 +97,7 @@ export const TeacherCommentsView: React.FC = () => {
   return (
     <div className="p-8 max-w-[1600px] mx-auto pb-40 animate-in fade-in duration-500 text-black">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 text-black">
-        <GradingHeader subjectName="Reporte Cualitativo" isSaving={isSaving} saveSuccess={saveSuccess} onSave={onSave} isEditable={isEditable} />
+        <GradingHeader subjectName="Reporte Cualitativo" isSaving={false} saveSuccess={false} isEditable={isEditable} />
         <div className="flex flex-col items-end gap-2 bg-white px-6 py-4 rounded-3xl border border-slate-100 shadow-sm">
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isEditable ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}>
             {isEditable ? <Unlock size={12} /> : <Lock size={12} />}
@@ -145,19 +115,16 @@ export const TeacherCommentsView: React.FC = () => {
       />
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">
-        {/* Lista de Seeds */}
           <StudentSidebar
           students={filteredStudents}
           selectedId={selectedStudentId}
           onSelect={setSelectedStudentId}
         />
 
-        {/* Editor de Reporte */}
         <div className="flex-1 space-y-8 w-full">
           {currentStudent && currentComment ? (
             <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-8">
               
-              {/* Síntesis Final e IA */}
               <CommentSection
                   currentComment={currentComment}
                   handleAIAction={handleAIAction}
@@ -171,8 +138,6 @@ export const TeacherCommentsView: React.FC = () => {
                   updateField={updateField}
                 />
 
-
-              {/* Secciones Pedagógicas */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-black">
                 <DimensionBlock 
                   title="Aprendizaje Académico" icon={<BrainCircuit />} color="bg-blue-50 text-blue-600" 
@@ -195,7 +160,6 @@ export const TeacherCommentsView: React.FC = () => {
                   current={currentComment} templates={templates} studentLevel={currentStudent.academic_level?.[0]} isEditable={isEditable} onUpdate={updateField} />
               </div>
 
-              {/* Nota de Convivencia Numérica */}
               <section className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
                   <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl"><Users size={32} /></div>
@@ -228,8 +192,5 @@ export const TeacherCommentsView: React.FC = () => {
     </div>
   );
 };
-
-
-
 
 export default TeacherCommentsView;

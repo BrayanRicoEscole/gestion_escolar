@@ -1,13 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
-import { Loader2, AlertCircle, Search, Calendar, Lock, Unlock } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info } from 'lucide-react';
 import { useGrading } from '../../../../hooks/useGrading';
 import { useStudentResults } from './thGradingHooks/useStudentResults';
 import { GradingHeader } from './components/GradingHeader';
 import { GradingFilters } from './components/GradingFilters';
 import { GradesTable } from './components/GradesTable/GradesTable';
-
-type ConsolidationStatus = 'all' | 'consolidated' | 'not_consolidated';
 
 const TeacherGradingView: React.FC = () => {
   const grading = useGrading();
@@ -36,13 +34,10 @@ const TeacherGradingView: React.FC = () => {
     getLevelingValue = () => '',
     handleGradeChange = () => {},
     handleLevelingChange = () => {},
-    handlesaveGrades = async () => false,
     toggleSkillSelection = () => {},
     getSkillSelectionsForStudent = () => []
   } = grading ?? {};
 
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [consolidationFilter, setConsolidationFilter] = useState<ConsolidationStatus>('all');
   const [collapsedMoments, setCollapsedMoments] = useState<Set<string>>(new Set());
 
   const isWithinDateRange = useMemo(() => {
@@ -63,22 +58,13 @@ const TeacherGradingView: React.FC = () => {
     });
   };
 
-  const onSave = async () => {
-    if (!isWithinDateRange) return;
-    const success = await handlesaveGrades();
-    if (success) {
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }
-  };
-
   const studentsWithResults = useStudentResults({
     students: filteredStudents,
     station: currentStation,
     subjectId: selectedSubjectId,
     getGradeValue,
     getLevelingValue,
-    consolidationFilter
+    consolidationFilter: 'all'
   });
 
   const currentSubjectName =
@@ -88,29 +74,28 @@ const TeacherGradingView: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[600px] gap-4">
         <Loader2 className="w-12 h-12 text-primary animate-spin" />
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Accediendo al Registro...</p>
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Accediendo al Libro de Notas...</p>
       </div>
     );
   }
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto pb-40 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <GradingHeader
           subjectName={currentSubjectName}
           isSaving={isSaving}
-          saveSuccess={saveSuccess}
-          onSave={onSave}
           isEditable={isWithinDateRange}
         />
-        <div className="flex flex-col items-end gap-2 bg-white px-6 py-4 rounded-3xl border border-slate-100 shadow-sm">
+        
+        <div className="flex flex-col items-end gap-2 bg-white px-6 py-4 rounded-[2rem] border border-slate-100 shadow-sm">
            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isWithinDateRange ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}>
               {isWithinDateRange ? <Unlock size={12} /> : <Lock size={12} />}
-              {isWithinDateRange ? 'Registro Abierto' : 'Registro Bloqueado'}
+              {isWithinDateRange ? 'Registro Habilitado' : 'Registro Bloqueado'}
            </div>
            <div className="flex items-center gap-3 text-slate-400">
               <Calendar size={14} className="text-primary" />
-              <span className="text-xs font-bold">
+              <span className="text-[11px] font-bold">
                  Vigencia: <span className="text-slate-700">{currentStation.startDate}</span> al <span className="text-slate-700">{currentStation.endDate}</span>
               </span>
            </div>
@@ -123,7 +108,7 @@ const TeacherGradingView: React.FC = () => {
         selectedStationId={selectedStationId}
         selectedSubjectId={selectedSubjectId}
         selectedCourse={selectedCourse}
-        consolidationFilter={consolidationFilter}
+        consolidationFilter="all"
         selectedAtelier={selectedAtelier}
         selectedModality={selectedModality}
         selectedAcademicLevel={selectedAcademicLevel}
@@ -131,7 +116,7 @@ const TeacherGradingView: React.FC = () => {
         onStationChange={setSelectedStationId}
         onSubjectChange={setSelectedSubjectId}
         onCourseChange={setSelectedCourse}
-        onConsolidationChange={setConsolidationFilter}
+        onConsolidationChange={() => {}}
         onAtelierChange={setSelectedAtelier}
         onModalityChange={setSelectedModality}
         onAcademicLevelChange={setSelectedAcademicLevel}
@@ -155,21 +140,33 @@ const TeacherGradingView: React.FC = () => {
           getSkillSelectionsForStudent={getSkillSelectionsForStudent}
         />
       ) : (
-        <div className="mt-10 text-center py-20 bg-white rounded-5xl border border-dashed border-slate-200">
-          <Search size={40} className="mx-auto text-slate-200 mb-4" />
-          <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">No se encontraron estudiantes</p>
+        <div className="mt-10 text-center py-24 bg-white rounded-[3.5rem] border-2 border-dashed border-slate-100">
+          <Search size={48} className="mx-auto text-slate-100 mb-4" />
+          <p className="text-slate-400 font-black uppercase text-xs tracking-widest">No se encontraron estudiantes con los filtros actuales</p>
         </div>
       )}
 
-      <div className="mt-8 p-6 bg-blue-50 rounded-3xl border border-blue-100 flex items-center gap-4">
-        <AlertCircle className="text-primary shrink-0" size={24} />
-        <div className="flex flex-col">
-            <p className="text-sm text-primary font-bold">
-                <span className="uppercase">Importante:</span> Solo se permiten calificaciones de 1 o 5.
+      {/* Alerta de Autoguardado */}
+      <div className="mt-10 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+        <Zap className="absolute -right-8 -bottom-8 w-64 h-64 text-white/5 group-hover:text-white/10 transition-all duration-700" />
+        <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-primary shadow-inner border border-white/5">
+             <Info size={32} className="text-white" />
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <h4 className="text-xl font-black uppercase tracking-tight mb-2">
+                Sistema de Autoguardado e Inteligencia Realtime
+            </h4>
+            <p className="text-sm text-white/60 font-medium leading-relaxed max-w-4xl">
+                Toda calificación ingresada se sincroniza **instantáneamente** con el servidor. 
+                Si otro docente edita la misma planilla, verás los cambios reflejados sin necesidad de recargar. 
+                Revisa los logs de la consola (F12) para ver la telemetría de sincronización en tiempo real.
             </p>
-            <p className="text-xs text-primary/70">
-                La columna de <strong>Nivelación</strong> sobreescribe la nota final a 3.7 si se registra un valor satisfactorio (≥ 3.7).
-            </p>
+          </div>
+          <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+             <span className="text-[10px] font-black uppercase tracking-[0.2em]">En Línea</span>
+          </div>
         </div>
       </div>
     </div>
