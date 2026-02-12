@@ -1,10 +1,11 @@
+
 import React from 'react'
 import ReportHeader from "./ReportHeader";
 import ReportFooter from "./ReportFooter";
 import {Station, GradeEntry, LearningMoment, SkillSelection} from 'types'
-import { useReport } from '../../../hooks/useReports';
+import { useReport, ReportSubject } from '../../../hooks/useReports';
 
-const labsStyles = {
+const labsStyles: Record<string, any> = {
   "CLEPE": {
     "name": "📖 LABORATORIO CLEPE",
     "desc": "CUERPO, LETRAS Y PENSAMIENTO",
@@ -19,145 +20,158 @@ const labsStyles = {
     "name": "🔬LABORATORIO MEC",
     "desc": "MODELACIÓN, EXPERIMENTACIÓN Y COMPROBACIÓN",
     "color": "#0f4899"
+  },
+  "General": {
+    "name": "📚 LABORATORIO GENERAL",
+    "desc": "PROCESOS INTEGRALES",
+    "color": "#64748b"
   }
 }
+
 interface Props {
-  studentId: string
+  studentId: string;
   currentStation: Station | null;
   grades: GradeEntry[];
   skillSelections: SkillSelection[];
-  
 }
-const MomentosPage : React.FC<Props> = ({ currentStation, grades, studentId,skillSelections}) => {
-  const { reportData, labs, generalAverage } = useReport(
+
+const MomentosPage : React.FC<Props> = ({ currentStation, grades, studentId, skillSelections}) => {
+  const { labs } = useReport(
     currentStation,
     studentId,
-    grades
+    grades,
+    skillSelections
   );
-  return(
-<div className="report-page relative border border-border shadow-lg p-8 pb-14 py-0 pt-0 pl-0 pr-0">
 
-    <ReportHeader />
+  if (!currentStation) return null;
 
-    <div className="mt-12 relative z-10 px-[50px]">
-      <p className="text-center mb-4">
-        <span className="text-sm text-[#0f4899]">Tabla 2. </span>
-        <span className=" font-bold text-[#0f4899] text-lg">
-          Porcentajes de los Momentos de Aprendizaje
-        </span>
-      </p>
+  return (
+    <div className="report-page relative border border-border shadow-lg p-0 bg-white">
+      <ReportHeader />
 
-      <table className="w-full border border-[#ff9900] rounded-lg overflow-hidden mb-10 ">
-        <thead>
-          <tr className="bg-[#ff9900] border border-[#ff9900]">
-            <th colSpan={5} className="text-center px-5 py-3 text-white  font-bold text-base border border-[#ff9900]">
-              Momentos de Aprendizaje
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border border-[#ff9900]  bg-background">
-            <td className="px-5 py-2 text-[#0f4899]  font-bold text-sm text-center w-40 border border-[#ff9900]">Momento</td>
-            {currentStation.moments.map((learningMoment: LearningMoment) => (
-  <td
-    key={learningMoment.id} // use a unique id if available
-    className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900]"
-  >
-    {learningMoment.name}
-  </td>
-))}
-           
-          </tr>
-          <tr className="border border-[#ff9900] bg-background">
-            <td className="px-5 py-2 text-[#0f4899] font-bold text-sm text-center border border-[#ff9900]">Duración</td>
-            <td className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900]">1 semana</td>
-            <td className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900] ">5 semanas</td>
-            <td className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900] ">2 semanas</td>
-            <td className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900] ">2 semanas</td>
-          </tr>
-          <tr className="bg-background border border-[#ff9900]">
-            <td className="px-5 py-2 text-[#0f4899] font-bold text-sm text-center border border-[#ff9900]">Porcentaje</td>
-            {currentStation.moments.map((learningMoment: LearningMoment) => (
-   <td className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900]">{learningMoment.weight}</td>
-))}
-            
-          </tr>
-        </tbody>
-      </table>
+      <div className="mt-12 relative z-10 px-[50px]">
+        {/* TABLA 2: PORCENTAJES DE MOMENTOS */}
+        <p className="text-center mb-4">
+          <span className="text-sm text-[#0f4899]">Tabla 2. </span>
+          <span className="font-bold text-[#0f4899] text-lg">
+            Porcentajes de los Momentos de Aprendizaje
+          </span>
+        </p>
 
-      <p className="text-center mb-4">
-        <span className="text-sm text-[#0f4899]">Tabla 3. </span>
-        <span className=" font-bold text-lg text-[#0f4899]">
-          Reporte Evaluación Formativa y Sumativa
-        </span>
-      </p>
-
-      <table className="w-full border border-[ff9900] overflow-hidden">
-        <thead>
-          <tr className="bg-[#0f4899]">
-            <th rowSpan={2} className="px-4 py-2  font-bold text-xs w-40 border border-white">
-              ÁREA
-            </th>
-            <th colSpan={4} className="text-center px-4 py-2  font-bold text-xs border border-white">
-              MOMENTOS DE APRENDIZAJE
-            </th>
-            <th rowSpan={2} className="px-4 py-2  font-bold text-xs text-center">
-              VALORACIÓN
-            </th>
-          </tr>
-          <tr className="bg-[#0f4899]">
-          {currentStation.moments.map((learningMoment: LearningMoment) => (
-  <th className="px-3 py-1  font-bold text-[10px] text-center border-r border-white">{learningMoment.name}<br />({learningMoment.weight})</th>
-))}
-          
-          </tr>
-        </thead>
-        <tbody>
-        {Object.entries(labs).map(([labName, items]) => (
-          <React.Fragment key={labName}>
-          <tr className="border-b border-[#ff9900] bg-muted/20">
-            <td colSpan={6} className="px-4 py-2">
-              <div className={`font-bold text-[${labsStyles[labName].color }] text-sm`}>{labsStyles[labName].name } </div>
-              <div className={`font-bold text-[${labsStyles[labName].color }] text-xs`}>{labsStyles[labName].desc } </div>
-            </td>
-          </tr>
-          {items.map((subject)=>(
-            <React.Fragment key={subject.subject.name}> <tr className="border-b border-[#ff9900]">
-            <td className={`px-4 py-2  font-bold text-[${labsStyles[labName].color }]  text-xs border-r border-[#ff9900]`}>{subject.subject.name}</td>
-            {subject.momentResults.map((m: any) => (
-                              
-                              <td key={m.id} className="px-4 py-6 text-center border-l border-slate-100 border border-[#ff9900]">
-                                <span className={`text-xs text-[#0f4899] `}>
-                                  {m.hasData ? (m.average >= 3.7 ? 'Consolidado' : 'No Consolidado') : '—'}
-                                </span>
-                              </td>
-                            ))}
-   
-             <td className="px-4 py-2 text-[#0f4899] text-xs border border-[#ff9900]"> {subject.finalStationAvg > 0 ? (subject.finalStationAvg >= 3.7 ? 'Consolidado' : 'No Consolidado') : '—'}</td>
+        <table className="w-full border-collapse border border-[#ff9900] mb-10 bg-white">
+          <thead>
+            <tr className="bg-[#ff9900]">
+              <th colSpan={currentStation.moments.length + 1} className="text-center px-5 py-3 text-white font-bold text-base border border-[#ff9900]">
+                Momentos de Aprendizaje
+              </th>
             </tr>
-            <tr className="border-b border-[#ff9900]">
-            <td className="px-4 py-2  font-bold text-[#ff9900] text-xs border-r border-[#ff9900]">Habilidades {subject.subject.name}</td>
-            <td colSpan={5} className="px-4 py-2 text-sm text-[#ff9900] border-r border-[#ff9900]"> {
-    skillSelections.find(
-      (skillSelection: SkillSelection) =>
-        skillSelection.subjectId === subject.subject.id
-    )?.subjectId ?? "—"
-  }</td>
-            
-          </tr>
-          </React.Fragment>
-        ))}
-         
-          </React.Fragment>
-          )
-        )}
-        
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="px-5 py-2 text-[#0f4899] font-bold text-sm text-center w-40 border border-[#ff9900]">Momento</td>
+              {currentStation.moments.map((m: LearningMoment) => (
+                <td key={m.id} className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900]">
+                  {m.name.split('/')[0]}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="px-5 py-2 text-[#0f4899] font-bold text-sm text-center border border-[#ff9900]">Duración</td>
+              {currentStation.moments.map((_, i) => (
+                <td key={`dur-${i}`} className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900]">
+                  {i === 0 ? '1 sem.' : i === 1 ? '5 sem.' : '2 sem.'}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="px-5 py-2 text-[#0f4899] font-bold text-sm text-center border border-[#ff9900]">Porcentaje</td>
+              {currentStation.moments.map((m) => (
+                <td key={`pct-${m.id}`} className="px-5 py-2 text-[#0f4899] text-sm text-center border border-[#ff9900]">
+                  {m.weight}%
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
 
-    <ReportFooter />
-  </div>
+        {/* TABLA 3: EVALUACIÓN FORMATIVA Y SUMATIVA */}
+        <p className="text-center mb-4">
+          <span className="text-sm text-[#0f4899]">Tabla 3. </span>
+          <span className="font-bold text-lg text-[#0f4899]">
+            Reporte Evaluación Formativa y Sumativa
+          </span>
+        </p>
+
+        <table className="w-full border-collapse border border-[#ff9900] bg-white">
+          <thead>
+            <tr className="bg-[#0f4899]">
+              <th rowSpan={2} className="px-4 py-2 font-bold text-xs w-40 border border-white text-white">
+                ÁREA
+              </th>
+              <th colSpan={currentStation.moments.length} className="text-center px-4 py-2 font-bold text-xs border border-white text-white">
+                MOMENTOS DE APRENDIZAJE
+              </th>
+              <th rowSpan={2} className="px-4 py-2 font-bold text-xs text-center border border-white text-white">
+                VALORACIÓN
+              </th>
+            </tr>
+            <tr className="bg-[#0f4899]">
+              {currentStation.moments.map((m: LearningMoment) => (
+                <th key={m.id} className="px-3 py-1 font-bold text-[10px] text-center border border-white text-white">
+                  {m.name.split('/')[0]}<br />({m.weight}%)
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(labs).map(([labName, items]) => {
+              const style = labsStyles[labName] || labsStyles.General;
+              return (
+                <React.Fragment key={labName}>
+                  <tr className="bg-slate-50 border-b border-[#ff9900]">
+                    <td colSpan={currentStation.moments.length + 2} className="px-4 py-2">
+                      <div className="font-bold text-sm" style={{ color: style.color }}>{style.name}</div>
+                      <div className="font-bold text-xs opacity-80" style={{ color: style.color }}>{style.desc}</div>
+                    </td>
+                  </tr>
+                  {items.map((r: ReportSubject) => (
+                    <React.Fragment key={r.subject.id}>
+                      <tr className="border-b border-[#ff9900]">
+                        <td className="px-4 py-2 font-bold text-xs border-r border-[#ff9900] " style={{ color: style.color }}>
+                          {r.subject.name}
+                        </td>
+                        {r.momentResults.map((m: any) => (
+                          <td key={m.id} className="px-2 py-4 text-center border-r border-[#ff9900]">
+                            <span className="text-xs  font-black text-[#0f4899]">
+                              {m.hasData ? (m.average >= 3.7 ? 'Consolidado' : 'No Consolidado') : '—'}
+                            </span>
+                          </td>
+                        ))}
+                        <td className="px-4 py-2 text-[#0f4899] text-xs font-black text-center">
+                          {r.finalStationAvg > 0 ? (r.finalStationAvg >= 3.7 ? 'Consolidado' : 'No Consolidado') : '—'}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-[#ff9900]">
+                        <td className="px-4 py-2 font-bold text-[#ff9900] text-xs border-r border-[#ff9900] bg-slate-50">
+                          Habilidades {r.subject.name}
+                        </td>
+                        <td colSpan={currentStation.moments.length + 1} className="px-4 py-3 text-[11px] text-[#0f4899] italic ">
+                          {r.selectedSkills && r.selectedSkills.length > 0 
+                            ? r.selectedSkills.join('. ') 
+                            : "Proceso de aprendizaje en desarrollo para este nivel."}
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  ))}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <ReportFooter />
+    </div>
   )
 }
 export default MomentosPage;

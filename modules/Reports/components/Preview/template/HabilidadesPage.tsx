@@ -72,25 +72,25 @@ const HabilidadesPage: React.FC<Props> = ({ comment}) => <div className="report-
           </h4>
         </div>
         <div className="px-5 py-3 space-y-2">
-          <p className="text-sm">
+          <p className="text-sm text-[#0f4899]">
             <span className="font-bold text-[#0f4899] ">● Habilidades de interacción y cooperación que se fortalecieron con la seed: </span>
-            <span className="">{comment?.socialInteraction}</span>
+            <span className="text-[#0f4899]">{comment?.socialInteraction}</span>
           </p>
-          <p className="text-sm">
+          <p className="text-sm text-[#0f4899]">
             <span className="font-bold text-[#0f4899] ">● Desafíos que inciden en el clima escolar: </span>
             <span className="">{comment?.challenges}</span>
           </p>
-          <p className="text-sm">
+          <p className="text-sm text-[#0f4899]">
             <span className="font-bold text-[#0f4899]">● Aplicación y Desarrollo del Plan Individual de Ajuste Razonable (PIAR): </span>
-            <span className="">{comment?.piarDesc}</span>
+            <span className="text-[#0f4899]">{comment?.piarDesc}</span>
           </p>
         </div>
 
         {/* Comentario del TL */}
         <div className="px-5 py-3 border-t border-[#ff9900]">
-          <p className="text-sm">
+          <p className="text-sm text-[#0f4899]">
             <span className=" font-bold text-[#0f4899]">Comentario del TL: </span>
-            <span className="">{comment?.comentary}</span>
+            <span className="text-[#0f4899]">{comment?.comentary}</span>
           </p>
         </div>
       </div>

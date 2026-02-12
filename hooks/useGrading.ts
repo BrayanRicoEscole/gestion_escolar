@@ -19,7 +19,7 @@ import {
 } from '../services/api'
 import { supabase } from '../services/api/client'
 
-export const useGrading = () => {
+export const useGrading = (options: { realtime?: boolean } = { realtime: false }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [schoolYear, setSchoolYear] = useState<SchoolYear | null>(null)
   const [students, setStudents] = useState<Student[]>([])
@@ -86,9 +86,9 @@ export const useGrading = () => {
     currentStation?.subjects?.find(s => s.id === selectedSubjectId)
   , [currentStation, selectedSubjectId]);
 
-  // Suscripciones Realtime (Broadcast)
+  // Suscripciones Realtime (Broadcast) - Condicional
   useEffect(() => {
-    if (!selectedSubjectId || !selectedStationId) return
+    if (!options.realtime || !selectedSubjectId || !selectedStationId) return
 
     const gradesChannelId = `room:grades:${selectedSubjectId}`
     const levelingChannelId = `room:leveling:${selectedStationId}:${selectedSubjectId}`
@@ -105,7 +105,6 @@ export const useGrading = () => {
       config: { broadcast: { self: false } }
     })
       .on('broadcast', { event: 'grade_change' }, ({ payload }) => {
-        console.info(`[REALTIME] 📥 NOTA RECIBIDA:`, payload);
         const mapped: GradeEntry = {
           studentId: payload.studentId,
           slotId: payload.slotId,
@@ -119,9 +118,7 @@ export const useGrading = () => {
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`%c[REALTIME] 🟢 CONECTADO AL CANAL DE NOTAS: ${gradesChannelId}`, "color: #10b981; font-weight: bold;");
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.error(`%c[REALTIME] 🔴 FALLO EN CANAL DE NOTAS: ${status}`, "color: #f43f5e; font-weight: bold;");
+          console.log(`%c[REALTIME] 🟢 CONECTADO: ${gradesChannelId}`, "color: #10b981; font-weight: bold;");
         }
       });
 
@@ -129,7 +126,6 @@ export const useGrading = () => {
       config: { broadcast: { self: false } }
     })
       .on('broadcast', { event: 'leveling_change' }, ({ payload }) => {
-        console.info(`[REALTIME] 📥 NIVELACIÓN RECIBIDA:`, payload);
         const mapped: LevelingGrade = {
           studentId: payload.studentId,
           subjectId: payload.subjectId,
@@ -141,46 +137,32 @@ export const useGrading = () => {
           return [...rest, mapped];
         });
       })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`%c[REALTIME] 🟢 CONECTADO AL CANAL DE NIVELACIONES: ${levelingChannelId}`, "color: #10b981; font-weight: bold;");
-        }
-      });
+      .subscribe();
 
     gradesChannelRef.current = gradesChannel;
     levelingChannelRef.current = levelingChannel;
 
     return () => {
-      supabase.removeChannel(gradesChannel);
-      supabase.removeChannel(levelingChannel);
+      if (gradesChannel) supabase.removeChannel(gradesChannel);
+      if (levelingChannel) supabase.removeChannel(levelingChannel);
     }
-  }, [selectedSubjectId, selectedStationId])
+  }, [selectedSubjectId, selectedStationId, options.realtime])
 
-  // Filtrado de Estudiantes con Lógica de Pertenencia a Asignatura (courses)
+  // Filtrado de Estudiantes
   const filteredStudents = useMemo(() => {
-    // Si no hay asignatura seleccionada, no mostramos estudiantes
     if (!currentSubject) return [];
 
     return students.filter(student => {
-      // 1. Determinar el sufijo de modalidad para el código de curso
-      // Puede venir como 'RS'/'RC' o como el nombre largo del Enum
       const modality = student.modality || '';
       const isSede = modality === 'RS' || modality.includes('Sede') || modality.includes('(RS)');
       const suffix = isSede ? 'M' : 'C';
-
-      // 2. Construir el código de curso del estudiante (ej: D2-M)
       const studentCourseCode = `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
-      
-      // 3. Validar si el estudiante pertenece a uno de los cursos de esta asignatura
       const allowedCourses = currentSubject.courses || [];
       const belongsToSubject = allowedCourses.some(course => 
         course.trim().toUpperCase() === studentCourseCode
       );
-      
-      // Si la asignatura no incluye este curso, se descarta inmediatamente
       if (!belongsToSubject) return false;
 
-      // 4. Aplicar Filtros de UI adicionales (Búsqueda, Atelier, etc.)
       const matchesSearch = !searchTerm || 
         student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.document.includes(searchTerm);
@@ -210,8 +192,7 @@ export const useGrading = () => {
     try {
       await saveGrades([{ studentId, slotId, subjectId, value: numValue }]);
       const channel = gradesChannelRef.current;
-      if (channel && channel.state === 'joined') {
-        console.log(`[REALTIME] 📣 EMITIENDO BROADCAST (Nota: ${numValue})`);
+      if (channel && options.realtime) {
         await channel.send({
           type: 'broadcast',
           event: 'grade_change',
@@ -219,7 +200,7 @@ export const useGrading = () => {
         });
       }
     } catch (e) {
-      console.error("[AUTOSAVE] ❌ Error en persistencia:", e);
+      console.error("[AUTOSAVE] Persistencia error:", e);
     } finally {
       setIsSaving(false);
     }
@@ -237,7 +218,7 @@ export const useGrading = () => {
     try {
       await saveLevelingGrades([{ studentId, subjectId: selectedSubjectId, stationId: selectedStationId, value: numValue }]);
       const channel = levelingChannelRef.current;
-      if (channel && channel.state === 'joined') {
+      if (channel && options.realtime) {
         await channel.send({
           type: 'broadcast',
           event: 'leveling_change',
@@ -245,7 +226,7 @@ export const useGrading = () => {
         });
       }
     } catch (e) {
-      console.error("[AUTOSAVE] ❌ Error en nivelación:", e);
+      console.error("[AUTOSAVE] Nivelación error:", e);
     } finally {
       setIsSaving(false);
     }

@@ -1,5 +1,6 @@
+
 import { useMemo } from 'react';
-import { GradeEntry, Station } from '../../../../types';
+import { GradeEntry, Station, SkillSelection } from '../../../../types';
 
 interface MomentResult {
   id: string;
@@ -12,6 +13,7 @@ export interface ReportSubject {
   subject: any;
   momentResults: MomentResult[];
   finalStationAvg: number;
+  selectedSkills: string[];
 }
 
 function buildGradesMap(grades: GradeEntry[]) {
@@ -25,7 +27,8 @@ function buildGradesMap(grades: GradeEntry[]) {
 export function useReport(
   station: Station | null,
   studentId: string,
-  grades: GradeEntry[]
+  grades: GradeEntry[],
+  skillSelections: SkillSelection[] = []
 ) {
   const studentGrades = useMemo(
     () => grades.filter(g => g.studentId === studentId),
@@ -45,6 +48,7 @@ export function useReport(
     );
 
     return station.subjects.map(subject => {
+      // 1. Calcular resultados por momento
       const momentResults: MomentResult[] = station.moments.map(moment => {
         let totalWeighted = 0;
         let totalWeight = 0;
@@ -83,9 +87,18 @@ export function useReport(
         return acc + m.average * (weight / 100);
       }, 0);
 
-      return { subject, momentResults, finalStationAvg };
+      // 2. Resolver descripciones de habilidades seleccionadas
+      const studentSkillIds = skillSelections
+        .filter(s => s.studentId === studentId && s.subjectId === subject.id && s.stationId === station.id)
+        .map(s => s.skillId);
+
+      const selectedSkills = (subject.skills || [])
+        .filter((sk: any) => studentSkillIds.includes(sk.id))
+        .map((sk: any) => sk.description);
+
+      return { subject, momentResults, finalStationAvg, selectedSkills };
     });
-  }, [station, gradesMap]);
+  }, [station, gradesMap, skillSelections, studentId]);
 
   const generalAverage = useMemo(() => {
     if (!reportData.length) return 0;

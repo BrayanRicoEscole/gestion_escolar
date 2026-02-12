@@ -18,7 +18,8 @@ import { useDateLock } from './hooks/useDateLock';
 import { useMentorAI } from './hooks/useMentorAI';
 
 export const TeacherCommentsView: React.FC = () => {
-  const grading = useGrading();
+  // Optimizamos: NO activar realtime de notas en esta vista
+  const grading = useGrading({ realtime: false });
   const {
     isLoading = true,
     schoolYear,
@@ -156,7 +157,7 @@ export const TeacherCommentsView: React.FC = () => {
 
                 <DimensionBlock 
                   title="PIAR y Learning Crop" icon={<Sprout />} color="bg-emerald-50 text-emerald-600" 
-                  fields={[{ key: 'piarDesc', label: 'Aplicación y Desarrollo PIAR', tKey: 'piar_desc' }, { key: 'learningCropDesc', label: 'Vivencia Learning Crop', tKey: 'learning_crop_desc' }]}
+                  fields={[{ key: 'piarDesc', label: 'Aplicación y Desarrollo PIAR', tKey: 'piar_desc' }, { key: 'learning_crop_desc', label: 'Vivencia Learning Crop', tKey: 'learning_crop_desc' }]}
                   current={currentComment} templates={templates} studentLevel={currentStudent.academic_level?.[0]} isEditable={isEditable} onUpdate={updateField} />
               </div>
 

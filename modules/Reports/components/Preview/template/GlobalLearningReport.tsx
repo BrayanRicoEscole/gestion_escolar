@@ -1,3 +1,4 @@
+
 import React from 'react';
 import CoverPage from "./CoverPage";
 import StudentInfoPage from "./StudentInfoPage";
@@ -26,19 +27,18 @@ const GlobalLearningReport: React.FC<Props> = ({
   <div className="min-h-screen bg-muted/50 py-8 px-4 flex flex-col items-center gap-8">
     <CoverPage />
     <StudentInfoPage 
-    student={student}
-    schoolYear={schoolYear}
-    currentStation={currentStation}
+      student={student}
+      schoolYear={schoolYear}
+      currentStation={currentStation}
     />
     <MomentosPage
-    currentStation={currentStation}
-    grades={grades}
-    studentId={student.id}
-    skillSelections={skillSelections}
+      currentStation={currentStation}
+      grades={grades}
+      studentId={student.id!}
+      skillSelections={skillSelections}
     />
     <HabilidadesPage 
-      comment={  comment}
-
+      comment={comment}
     />
   </div>)
   }

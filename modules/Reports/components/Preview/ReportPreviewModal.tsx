@@ -31,7 +31,8 @@ export const ReportPreviewModal: React.FC<Props> = ({
   const { reportData, labs, generalAverage } = useReport(
     currentStation,
     student.id,
-    grades
+    grades,
+    skillSelections
   );
 
   const {
@@ -114,10 +115,8 @@ export const ReportPreviewModal: React.FC<Props> = ({
               currentStation={currentStation}
               grades={grades}
               skillSelections={skillSelections}
-
+              comment={comment}
             />
-
-
           </div>
         </div>
 
