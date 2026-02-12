@@ -107,167 +107,17 @@ export const ReportPreviewModal: React.FC<Props> = ({
 
         {/* Papel del Reporte */}
         <div className="flex-1 overflow-y-auto bg-slate-100 p-12 custom-scrollbar print:bg-white print:p-0">
-          <div id="printable-report" className="bg-white mx-auto shadow-2xl w-full max-w-[850px] min-h-[1100px] p-20 flex flex-col gap-12 print:shadow-none print:p-0 print:max-w-none">
-            <GlobalLearningReport/>
-            {/* Header Oficial */}
-            <header className="flex justify-between items-start border-b-8 border-primary pb-10">
-               <div className="space-y-2">
-                  <h1 className="text-4xl font-black text-slate-900 tracking-tighter">RED DE COLEGIOS RENFORT</h1>
-                  <p className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Institutional Academic Report</p>
-                  <div className="pt-6 grid grid-cols-2 gap-x-8 gap-y-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Añooo Lectivo: <span className="text-slate-700">{schoolYear?.name}</span></p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Estación: <span className="text-slate-700">{currentStation.name}</span></p>
-                  </div>
-               </div>
-               <div className="text-right space-y-1">
-                  <h2 className="text-2xl font-black text-slate-900 leading-tight">{student.full_name}</h2>
-                  <p className="text-sm font-bold text-primary italic">Nivel Académico: {student.academic_level}</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Seed ID: {student.document} • {student.modality === 'RS' ? 'Sede' : 'Casa'}</p>
-                  <div className="pt-2">
-                     <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-[9px] font-black uppercase tracking-widest border border-green-100">Certificado Oficial</span>
-                  </div>
-               </div>
-            </header>
+          <div id="printable-report" className="bg-white mx-auto shadow-2xl w-full max-w-[1050px] min-h-[1100px] p-20 flex flex-col gap-12 print:shadow-none print:p-0 print:max-w-none">
+            <GlobalLearningReport
+              student={student}
+              schoolYear={schoolYear}
+              currentStation={currentStation}
+              grades={grades}
+              skillSelections={skillSelections}
 
-            {/* Cuerpo del Reporte */}
-            <main className="space-y-12">
-              {Object.entries(labs).map(([labName, items]) => (
-                <section key={labName} className="space-y-6">
-                  <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-2">
-                    <div className="w-2.5 h-6 bg-primary rounded-full"></div>
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Laboratorio {labName}</h3>
-                  </div>
-
-                  <div className="border border-slate-200 rounded-[2.5rem] overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                          <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400">Asignatura</th>
-                          {currentStation.moments.map(m => (
-                            <th key={m.id} className="px-4 py-5 text-center text-[9px] font-black uppercase text-slate-400 border-l border-slate-100">
-                              {m.name.split('/')[0]}
-                            </th>
-                          ))}
-                          <th className="px-8 py-5 text-center text-[10px] font-black uppercase text-primary border-l border-slate-100 bg-primary/5">Est..</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {items.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/30">
-                            <td className="px-8 py-6 text-xs font-black text-slate-800">{row.subject.name}</td>
-                            {row.momentResults.map((m: any) => (
-                              <td key={m.id} className="px-4 py-6 text-center border-l border-slate-100">
-                                <span className={`text-xs font-black ${m.hasData ? (m.average >= 3.7 ? 'text-slate-800' : 'text-rose-500') : 'text-slate-200'}`}>
-                                  {m.hasData ? (m.average >= 3.7 ? 'Consolidado' : 'No Consolidado') : '—'}
-                                </span>
-                              </td>
-                            ))}
-                            <td className="px-8 py-6 text-center border-l border-slate-100 bg-primary/5">
-                               <span className={`text-sm font-black ${row.finalStationAvg >= 3.7 ? 'text-primary' : 'text-rose-600'}`}>
-                                 {row.finalStationAvg > 0 ? (row.finalStationAvg >= 3.7 ? 'Consolidado' : 'No Consolidado') : '—'}
-                               </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              ))}
-            </main>
-
-            {/* Síntesis Cualitativa */}
-            <section className="space-y-6">
-              <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-2">
-                <div className="w-2.5 h-6 bg-secondary rounded-full"></div>
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">APRENDIZAJE ACADÉMICO</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-10">
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Habilidades consolidadas</p>
-                  <div className="p-6 bg-slate-50 rounded-[2rem] text-[11px] font-medium text-slate-700 min-h-[120px] border border-slate-100 leading-relaxed italic">
-                    {comment?.academicCons || "Sin registros consolidados en esta estación."}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Habilidades no consolidadas</p>
-                  <div className="p-6 bg-slate-50 rounded-[2rem] text-[11px] font-medium text-slate-700 min-h-[120px] border border-slate-100 leading-relaxed italic">
-                    {comment?.academicNon || "Sin registros de retos en esta estación."}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-2">
-                <div className="w-2.5 h-6 bg-secondary rounded-full"></div>
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">APRENDIZAJE EMOCIONAL</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-10">
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Habilidades socioemocionales</p>
-                  <div className="p-6 bg-slate-50 rounded-[2rem] text-[11px] font-medium text-slate-700 min-h-[120px] border border-slate-100 leading-relaxed italic">
-                    {comment?.emotionalSkills || "Sin registros en esta estación."}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Talentos</p>
-                  <div className="p-6 bg-slate-50 rounded-[2rem] text-[11px] font-medium text-slate-700 min-h-[120px] border border-slate-100 leading-relaxed italic">
-                    {comment?.talents || "Sin registros en esta estación."}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-2">
-                <div className="w-2.5 h-6 bg-secondary rounded-full"></div>
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">APRENDIZAJE CONVIVENCIAL</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-10">
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Interacción y cooperación</p>
-                  <div className="p-6 bg-slate-50 rounded-[2rem] text-[11px] font-medium text-slate-700 min-h-[120px] border border-slate-100 leading-relaxed italic">
-                    {comment?.socialInteraction || "Sin registros en esta estación."}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Desafíos</p>
-                  <div className="p-6 bg-slate-50 rounded-[2rem] text-[11px] font-medium text-slate-700 min-h-[120px] border border-slate-100 leading-relaxed italic">
-                    {comment?.challenges || "Sin registros en esta estación."}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-2">
-                <div className="w-2.5 h-6 bg-secondary rounded-full"></div>
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">LEARNING CROP Y PIAR</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-10">
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AplIcación y Desarrollo del Plan Individual de Ajuste Razonable (PIAR)</p>
-                  <div className="p-6 bg-slate-50 rounded-[2rem] text-[11px] font-medium text-slate-700 min-h-[120px] border border-slate-100 leading-relaxed italic">
-                    {comment?.piarDesc || "Sin registros en esta estación."}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reporte de los Learning Crops Descripción de la vivencia de aprendizaje práctico y el rol de la seed</p>
-                  <div className="p-6 bg-slate-50 rounded-[2rem] text-[11px] font-medium text-slate-700 min-h-[120px] border border-slate-100 leading-relaxed italic">
-                    {comment?.learningCropDesc || "Sin registros en esta estación."}
-                  </div>
-                </div>
-              </div>
+            />
 
 
-              <div className="space-y-4 pt-6">
-                 <div className="flex items-center justify-center gap-3">
-                    <div className="h-[1px] flex-1 bg-slate-100"></div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Comentario</p>
-                    <div className="h-[1px] flex-1 bg-slate-100"></div>
-                 </div>
-                 <div className="p-10 bg-slate-900 text-white rounded-[3.5rem] text-[13px] leading-relaxed italic font-medium shadow-2xl relative overflow-hidden">
-                    <Sparkles className="absolute -top-4 -right-4 text-white/5" size={120} />
-                    <p className="relative z-10">{comment?.comentary || "El grower se encuentra finalizando la redacción del reporte cualitativo."}</p>
-                 </div>
-              </div>
-            </section>
           </div>
         </div>
 

@@ -4,11 +4,11 @@ const CoverPage = () => (
   <div className="report-page flex flex-col bg-background border border-border shadow-lg overflow-hidden">
     <img src={coverImage} alt="Students learning" className="w-full flex-1 object-cover" />
     <div className="px-8 py-6 flex flex-col items-center">
-      <h1 className="font-montserrat text-5xl font-black tracking-tight text-report-blue text-center leading-tight">
+      <h1 className="font-bold text-5xl text-[#0f4899] font-width-800 tracking-tight text-report-blue text-center leading-tight">
         GLOBAL LEARNING<br />REPORT
       </h1>
       <div className="mt-4 w-24 h-1 bg-report-orange rounded-full" />
-      <p className="mt-3 text-sm text-muted-foreground font-semibold tracking-widest uppercase">
+      <p className="mt-3 text-sm font-semibold tracking-widest uppercase text-[#0f4899]">
         Red de Colegios RENFORT
       </p>
     </div>

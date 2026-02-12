@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  GraduationCap, Users, BarChart3, ClipboardList, Settings, LayoutDashboard,
+  GraduationCap, Users, Settings, LayoutDashboard,
   Menu, X, ChevronRight, AlertCircle, UserCircle, ShieldCheck, MessageSquareText, FileText,
-  LogOut, LogIn, Loader2
+  LogOut, Loader2, FlaskConical, ClipboardList
 } from 'lucide-react';
 import { supabase } from './services/api/client';
 import { signInWithGoogle, signOut } from './services/api';
@@ -50,6 +50,7 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     try {
       await signOut();
+      setSession(null);
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -61,6 +62,22 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Error signing in with Google:", error);
     }
+  };
+
+  // Función de Bypass para Pruebas
+  const handleBypass = () => {
+    console.warn("[AUTH] 🛡️ Bypass de autenticación activado para pruebas.");
+    setSession({
+      user: {
+        id: 'tester-id-123',
+        email: 'tester@renfort.edu.co',
+        user_metadata: {
+          full_name: 'Docente de Pruebas',
+          avatar_url: null
+        }
+      }
+    });
+    setAuthLoading(false);
   };
 
   if (authLoading) {
@@ -83,13 +100,25 @@ const App: React.FC = () => {
           <p className="text-slate-500 font-medium mb-10 leading-relaxed">
             Bienvenido al sistema de gestión académica 2026. Inicia sesión para acceder a tu panel de control.
           </p>
-          <button 
-            onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-4 py-5 bg-white border-2 border-slate-100 rounded-3xl font-black text-slate-700 hover:bg-slate-50 hover:border-slate-200 transition-all active:scale-95 shadow-sm"
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-            Continuar con Google
-          </button>
+          
+          <div className="space-y-4">
+            <button 
+              onClick={handleLogin}
+              className="w-full flex items-center justify-center gap-4 py-5 bg-white border-2 border-slate-100 rounded-3xl font-black text-slate-700 hover:bg-slate-50 hover:border-slate-200 transition-all active:scale-95 shadow-sm"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
+              Continuar con Google
+            </button>
+
+            <button 
+              onClick={handleBypass}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-400 rounded-2xl font-bold text-xs hover:bg-slate-100 hover:text-slate-600 transition-all border border-transparent hover:border-slate-200"
+            >
+              <FlaskConical size={14} />
+              Acceso de Pruebas (Bypass)
+            </button>
+          </div>
+
           <p className="mt-10 text-[10px] text-slate-300 font-black uppercase tracking-widest">
             © 2026 Red de Colegios Renfort
           </p>
@@ -148,7 +177,7 @@ const App: React.FC = () => {
         <div className="p-6 flex items-center justify-between">
           <div className={`flex items-center gap-3 ${!sidebarOpen && 'hidden'}`}>
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg"><GraduationCap className="text-white w-6 h-6" /></div>
-            <h1 className="font-bold text-xl text-slate-800 tracking-tight text-black">EduGrade 2026</h1>
+            <h1 className="font-bold text-xl text-slate-800 tracking-tight">EduGrade 2026</h1>
           </div>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400">{sidebarOpen ? <X size={20} /> : <Menu size={20} />}</button>
         </div>
