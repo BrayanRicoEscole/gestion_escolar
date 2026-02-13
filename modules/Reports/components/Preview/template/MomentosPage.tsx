@@ -2,7 +2,7 @@
 import React from 'react'
 import ReportHeader from "./ReportHeader";
 import ReportFooter from "./ReportFooter";
-import {Station, GradeEntry, LearningMoment, SkillSelection} from 'types'
+import {Station, GradeEntry, LearningMoment, SkillSelection, Student} from 'types'
 import { useReport, ReportSubject } from '../../../hooks/useReports';
 
 const labsStyles: Record<string, any> = {
@@ -29,21 +29,21 @@ const labsStyles: Record<string, any> = {
 }
 
 interface Props {
-  studentId: string;
+  student: Student;
   currentStation: Station | null;
   grades: GradeEntry[];
   skillSelections: SkillSelection[];
 }
 
-const MomentosPage : React.FC<Props> = ({ currentStation, grades, studentId, skillSelections}) => {
+const MomentosPage : React.FC<Props> = ({ currentStation, grades, student, skillSelections}) => {
   const { labs } = useReport(
     currentStation,
-    studentId,
+    student,
     grades,
     skillSelections
   );
 
-  if (!currentStation) return null;
+  if (!currentStation || !student) return null;
 
   return (
     <div className="report-page relative border border-border shadow-lg p-0 bg-white">

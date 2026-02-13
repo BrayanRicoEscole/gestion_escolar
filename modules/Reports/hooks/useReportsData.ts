@@ -1,10 +1,11 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { useGrading } from '../../../hooks/useGrading';
 import { getStudentComments } from '../../../services/api';
 import { Student, StudentComment, Station } from '../../../types';
 
 export const useReportsData = () => {
-  const grading = useGrading();
+  const grading = useGrading({ subjectFilter: false });
   const [allComments, setAllComments] = useState<StudentComment[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
@@ -40,9 +41,6 @@ export const useReportsData = () => {
   const validationResults = useMemo(() => {
     return grading.filteredStudents.map(student => {
       // 1. Validar Notas (100% llenas)
-      // Nota: En un sistema real, filtraríamos el array de notas por studentId y stationId
-      // Aquí simulamos el conteo basado en los datos cargados en grading.grades
-      // Fix: Correctly access grades from grading object without any cast
       const studentGrades = grading.grades?.filter((g) => g.studentId === student.id) || [];
       const gradesComplete = expectedSlotsCount > 0 && studentGrades.length >= expectedSlotsCount;
 
@@ -72,7 +70,6 @@ export const useReportsData = () => {
         progress: expectedSlotsCount > 0 ? (studentGrades.length / expectedSlotsCount) * 100 : 0
       };
     });
-    // Fix: Correctly access grades from grading object without any cast
   }, [grading.filteredStudents, grading.currentStation, allComments, expectedSlotsCount, grading.grades]);
 
   return {

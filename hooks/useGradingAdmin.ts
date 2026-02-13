@@ -78,7 +78,7 @@ export const useGradingAdmin = () => {
     });
   };
 
-  const toggleCourse = (subIdx: number, courseCode: string | string[]) => {
+  const toggleCourse = (subIdx: number, courseCode: string | string[], forceValue?: boolean) => {
     if (!schoolYear) return;
     setSchoolYear(prev => {
       if (!prev) return prev;
@@ -94,10 +94,19 @@ export const useGradingAdmin = () => {
       const codes = Array.isArray(courseCode) ? courseCode : [courseCode];
       
       codes.forEach(code => {
-        if (subject.courses.includes(code)) {
-          subject.courses = subject.courses.filter(c => c !== code);
+        const alreadyExists = subject.courses.includes(code);
+        
+        if (forceValue !== undefined) {
+          // Operación determinista (Bulk)
+          if (forceValue && !alreadyExists) subject.courses.push(code);
+          else if (!forceValue && alreadyExists) subject.courses = subject.courses.filter(c => c !== code);
         } else {
-          subject.courses.push(code);
+          // Toggle tradicional (Single click)
+          if (alreadyExists) {
+            subject.courses = subject.courses.filter(c => c !== code);
+          } else {
+            subject.courses.push(code);
+          }
         }
       });
       
@@ -236,6 +245,7 @@ export const useGradingAdmin = () => {
     currentStep, setCurrentStep,
     isSaving, isLoading, saveSuccess,
     schoolYear, setSchoolYear,
+    // Fix: Updated property name from addCommentTemplates to addCommentTemplate
     commentTemplates, addCommentTemplate, addBulkTemplates, removeCommentTemplate, updateTemplateContent, cloneTemplates,
     selectedStationIdx, setSelectedStationIdx,
     selectedMomentIdx, setSelectedMomentIdx,

@@ -18,8 +18,8 @@ import { useDateLock } from './hooks/useDateLock';
 import { useMentorAI } from './hooks/useMentorAI';
 
 export const TeacherCommentsView: React.FC = () => {
-  // Optimizamos: NO activar realtime de notas en esta vista
-  const grading = useGrading({ realtime: false });
+  // Optimizamos: NO activar realtime de notas y desactivamos el filtro de materia
+  const grading = useGrading({ realtime: false, subjectFilter: false });
   const {
     isLoading = true,
     schoolYear,

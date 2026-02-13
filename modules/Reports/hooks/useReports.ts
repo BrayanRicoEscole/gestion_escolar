@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { GradeEntry, Station, SkillSelection } from '../../../../types';
+import { GradeEntry, Station, SkillSelection, Student } from '../../../../types';
 
 interface MomentResult {
   id: string;
@@ -26,10 +26,12 @@ function buildGradesMap(grades: GradeEntry[]) {
 
 export function useReport(
   station: Station | null,
-  studentId: string,
+  student: Student | null,
   grades: GradeEntry[],
   skillSelections: SkillSelection[] = []
 ) {
+  const studentId = student?.id;
+
   const studentGrades = useMemo(
     () => grades.filter(g => g.studentId === studentId),
     [grades, studentId]
@@ -40,14 +42,28 @@ export function useReport(
     [studentGrades]
   );
 
+  // Determinar el código de curso del estudiante para filtrar materias
+  const studentCourseCode = useMemo(() => {
+    if (!student) return '';
+    const modality = student.modality || '';
+    const isSede = modality === 'RS' || modality.includes('Sede') || modality.includes('(RS)');
+    const suffix = isSede ? 'M' : 'C';
+    return `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
+  }, [student]);
+
   const reportData = useMemo<ReportSubject[]>(() => {
-    if (!station) return [];
+    if (!station || !student) return [];
 
     const momentWeightMap = new Map(
       station.moments.map(m => [m.id, m.weight || 0])
     );
 
-    return station.subjects.map(subject => {
+    // FILTRO CRÍTICO: Solo materias que tengan el curso del estudiante en su configuración
+    const enrolledSubjects = station.subjects.filter(subject => 
+      subject.courses?.some(c => c.trim().toUpperCase() === studentCourseCode)
+    );
+
+    return enrolledSubjects.map(subject => {
       // 1. Calcular resultados por momento
       const momentResults: MomentResult[] = station.moments.map(moment => {
         let totalWeighted = 0;
@@ -98,7 +114,7 @@ export function useReport(
 
       return { subject, momentResults, finalStationAvg, selectedSkills };
     });
-  }, [station, gradesMap, skillSelections, studentId]);
+  }, [station, student, studentCourseCode, gradesMap, skillSelections, studentId]);
 
   const generalAverage = useMemo(() => {
     if (!reportData.length) return 0;

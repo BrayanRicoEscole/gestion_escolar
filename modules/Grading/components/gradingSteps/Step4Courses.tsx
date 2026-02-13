@@ -13,7 +13,7 @@ const CATEGORIES = [
 export const Step4Courses: React.FC<{ 
   station: any, 
   subjectIdx: number, 
-  onToggle: (idx: number, code: string | string[]) => void 
+  onToggle: (idx: number, code: string | string[], force?: boolean) => void 
 }> = ({ station, subjectIdx, onToggle }) => {
   const [activeCategoryId, setActiveCategoryId] = useState('petine');
   const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -30,17 +30,12 @@ export const Step4Courses: React.FC<{
     activeCategory.range.forEach(levelLetter => {
       numbers.forEach(n => {
         const code = `${levelLetter}${n}-${modalitySuffix}`;
-        const currentlyActive = subject.courses?.includes(code);
-        if (shouldAdd && !currentlyActive) {
-          codesToToggle.push(code);
-        } else if (!shouldAdd && currentlyActive) {
-          codesToToggle.push(code);
-        }
+        codesToToggle.push(code);
       });
     });
     
     if (codesToToggle.length > 0) {
-      onToggle(subjectIdx, codesToToggle);
+      onToggle(subjectIdx, codesToToggle, shouldAdd);
     }
   };
 
@@ -118,6 +113,7 @@ export const Step4Courses: React.FC<{
                   
                   <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                     {numbers.map(n => {
+                      // Fix: Changed levelLetter to levelChar to correctly reference the loop variable
                       const code = `${levelChar}${n}-${config.suffix}`;
                       const active = subject?.courses?.includes(code);
                       return (

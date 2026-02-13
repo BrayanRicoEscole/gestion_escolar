@@ -34,7 +34,7 @@ const GlobalLearningReport: React.FC<Props> = ({
     <MomentosPage
       currentStation={currentStation}
       grades={grades}
-      studentId={student.id!}
+      student={student}
       skillSelections={skillSelections}
     />
     <HabilidadesPage 

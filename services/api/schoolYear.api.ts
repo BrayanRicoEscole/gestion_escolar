@@ -113,7 +113,7 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
     (st.subjects || []).forEach(sub => {
       rawSubjects.push({
         id: sub.id,
-        station_id: st.id, // Referencia directa en subjects
+        // Eliminado station_id del payload de subjects para cumplir con el esquema Many-to-Many
         name: sub.name,
         area: sub.area,
         lab: sub.lab,
@@ -170,7 +170,6 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
     if (subError) throw subError;
 
     // IMPORTANTE: Sincronizar tabla intermedia station_subjects
-    // Filtramos duplicados de la relación compuesta
     const uniqueStationSubjects = Array.from(
       new Map(rawStationSubjects.map(item => [`${item.station_id}-${item.subject_id}`, item])).values()
     );

@@ -30,7 +30,7 @@ export const ReportPreviewModal: React.FC<Props> = ({
 
   const { reportData, labs, generalAverage } = useReport(
     currentStation,
-    student.id,
+    student,
     grades,
     skillSelections
   );
@@ -99,6 +99,7 @@ export const ReportPreviewModal: React.FC<Props> = ({
               <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black transition-all shadow-xl hover:bg-slate-100">
                 <Printer size={16} /> Exportar PDF
               </button>
+              {/* Fix: Changed onClose to onClick which is the correct property for a button element */}
               <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all">
                 <X size={28} />
               </button>

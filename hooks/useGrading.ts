@@ -19,7 +19,9 @@ import {
 } from '../services/api'
 import { supabase } from '../services/api/client'
 
-export const useGrading = (options: { realtime?: boolean } = { realtime: false }) => {
+export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolean } = {}) => {
+  const { realtime = false, subjectFilter = true } = options;
+  
   const [isLoading, setIsLoading] = useState(true)
   const [schoolYear, setSchoolYear] = useState<SchoolYear | null>(null)
   const [students, setStudents] = useState<Student[]>([])
@@ -88,7 +90,7 @@ export const useGrading = (options: { realtime?: boolean } = { realtime: false }
 
   // Suscripciones Realtime (Broadcast) - Condicional
   useEffect(() => {
-    if (!options.realtime || !selectedSubjectId || !selectedStationId) return
+    if (!realtime || !selectedSubjectId || !selectedStationId) return
 
     const gradesChannelId = `room:grades:${selectedSubjectId}`
     const levelingChannelId = `room:leveling:${selectedStationId}:${selectedSubjectId}`
@@ -146,22 +148,26 @@ export const useGrading = (options: { realtime?: boolean } = { realtime: false }
       if (gradesChannel) supabase.removeChannel(gradesChannel);
       if (levelingChannel) supabase.removeChannel(levelingChannel);
     }
-  }, [selectedSubjectId, selectedStationId, options.realtime])
+  }, [selectedSubjectId, selectedStationId, realtime])
 
   // Filtrado de Estudiantes
   const filteredStudents = useMemo(() => {
-    if (!currentSubject) return [];
+    if (subjectFilter && !currentSubject) return [];
 
     return students.filter(student => {
       const modality = student.modality || '';
       const isSede = modality === 'RS' || modality.includes('Sede') || modality.includes('(RS)');
       const suffix = isSede ? 'M' : 'C';
       const studentCourseCode = `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
-      const allowedCourses = currentSubject.courses || [];
-      const belongsToSubject = allowedCourses.some(course => 
-        course.trim().toUpperCase() === studentCourseCode
-      );
-      if (!belongsToSubject) return false;
+      
+      // Filtro por materia opcional
+      if (subjectFilter && currentSubject) {
+        const allowedCourses = currentSubject.courses || [];
+        const belongsToSubject = allowedCourses.some(course => 
+          course.trim().toUpperCase() === studentCourseCode
+        );
+        if (!belongsToSubject) return false;
+      }
 
       const matchesSearch = !searchTerm || 
         student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,7 +184,7 @@ export const useGrading = (options: { realtime?: boolean } = { realtime: false }
       
       return matchesSearch && matchesAtelier && matchesModality && matchesAcademicLevel && matchesCourseSelection;
     });
-  }, [students, searchTerm, selectedCourse, selectedAtelier, selectedModality, selectedAcademicLevel, currentSubject]);
+  }, [students, searchTerm, selectedCourse, selectedAtelier, selectedModality, selectedAcademicLevel, currentSubject, subjectFilter]);
 
   const handleGradeChange = async (studentId: string, slotId: string, subjectId: string, value: string) => {
     const numValue = value === '' ? null : parseFloat(value);
@@ -192,7 +198,7 @@ export const useGrading = (options: { realtime?: boolean } = { realtime: false }
     try {
       await saveGrades([{ studentId, slotId, subjectId, value: numValue }]);
       const channel = gradesChannelRef.current;
-      if (channel && options.realtime) {
+      if (channel && realtime) {
         await channel.send({
           type: 'broadcast',
           event: 'grade_change',
@@ -218,7 +224,7 @@ export const useGrading = (options: { realtime?: boolean } = { realtime: false }
     try {
       await saveLevelingGrades([{ studentId, subjectId: selectedSubjectId, stationId: selectedStationId, value: numValue }]);
       const channel = levelingChannelRef.current;
-      if (channel && options.realtime) {
+      if (channel && realtime) {
         await channel.send({
           type: 'broadcast',
           event: 'leveling_change',
