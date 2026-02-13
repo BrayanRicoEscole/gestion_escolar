@@ -1,18 +1,24 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info, FileDown, FileUp, ShieldCheck, GraduationCap } from 'lucide-react';
 import { useGrading } from '../../../../hooks/useGrading';
 import { useStudentResults } from './thGradingHooks/useStudentResults';
 import { GradingHeader } from './components/GradingHeader';
 import { GradingFilters } from './components/GradingFilters';
 import { GradesTable } from './components/GradesTable/GradesTable';
+import { generateGradesTemplateCsv, parseGradesCsv } from '../../utils/GradesCsvService';
 
 const TeacherGradingView: React.FC = () => {
-  // Optimizamos: solo activar realtime en esta vista
   const grading = useGrading({ realtime: true });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isAdmin = true; 
 
   const {
     isLoading = true,
+    allYears = [],
+    selectedYearId = '',
+    setSelectedYearId = () => {},
     schoolYear = null,
     currentStation = null,
     filteredStudents = [],
@@ -36,7 +42,8 @@ const TeacherGradingView: React.FC = () => {
     handleGradeChange = () => {},
     handleLevelingChange = () => {},
     toggleSkillSelection = () => {},
-    getSkillSelectionsForStudent = () => []
+    getSkillSelectionsForStudent = () => [],
+    bulkImportGradesAndSkills
   } = grading ?? {};
 
   const [collapsedMoments, setCollapsedMoments] = useState<Set<string>>(new Set());
@@ -59,6 +66,47 @@ const TeacherGradingView: React.FC = () => {
     });
   };
 
+  const handleDownloadCsv = () => {
+    if (!currentStation || !selectedSubjectId) return;
+    const csv = generateGradesTemplateCsv(
+      currentStation, 
+      filteredStudents, 
+      selectedSubjectId, 
+      getGradeValue, 
+      getSkillSelectionsForStudent
+    );
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `Calificaciones_${currentStation.name}_${selectedSubjectId}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentStation) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const data = parseGradesCsv(text, currentStation, filteredStudents);
+        if (data) {
+          const success = await bulkImportGradesAndSkills(data);
+          if (success) alert("Importación completada con éxito.");
+        }
+      } catch (err) {
+        alert("Error al procesar el archivo CSV.");
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const studentsWithResults = useStudentResults({
     students: filteredStudents,
     station: currentStation,
@@ -73,15 +121,15 @@ const TeacherGradingView: React.FC = () => {
 
   if (isLoading || !schoolYear || !currentStation) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[600px] gap-4">
+      <div className="flex flex-col items-center justify-center min-h-[600px] gap-4 text-black">
         <Loader2 className="w-12 h-12 text-primary animate-spin" />
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Accediendo al Libro de Notas...</p>
+        <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Accediendo al Libro de Notas...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto pb-40 animate-in fade-in duration-500">
+    <div className="p-8 max-w-[1600px] mx-auto pb-40 animate-in fade-in duration-500 text-black">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <GradingHeader
           subjectName={currentSubjectName}
@@ -89,21 +137,44 @@ const TeacherGradingView: React.FC = () => {
           isEditable={isWithinDateRange}
         />
         
-        <div className="flex flex-col items-end gap-2 bg-white px-6 py-4 rounded-[2rem] border border-slate-100 shadow-sm">
-           <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isWithinDateRange ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}>
-              {isWithinDateRange ? <Unlock size={12} /> : <Lock size={12} />}
-              {isWithinDateRange ? 'Registro Habilitado' : 'Registro Bloqueado'}
-           </div>
-           <div className="flex items-center gap-3 text-slate-400">
-              <Calendar size={14} className="text-primary" />
-              <span className="text-[11px] font-bold">
-                 Vigencia: <span className="text-slate-700">{currentStation.startDate}</span> al <span className="text-slate-700">{currentStation.endDate}</span>
-              </span>
+        <div className="flex flex-col items-end gap-3">
+           {isAdmin && (
+             <div className="flex gap-2 bg-slate-900 p-1.5 rounded-2xl shadow-xl border border-white/10">
+                <button 
+                  onClick={handleDownloadCsv}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                >
+                  <FileDown size={14} className="text-primary" /> Plantilla
+                </button>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-primary-hover shadow-lg"
+                >
+                  <FileUp size={14} /> Importar CSV
+                </button>
+                <input type="file" ref={fileInputRef} onChange={handleImportCsv} accept=".csv" className="hidden" />
+             </div>
+           )}
+
+           <div className="flex flex-col items-end gap-2 bg-white px-6 py-4 rounded-[2rem] border border-slate-100 shadow-sm">
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isWithinDateRange ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}>
+                  {isWithinDateRange ? <Unlock size={12} /> : <Lock size={12} />}
+                  {isWithinDateRange ? 'Registro Habilitado' : 'Registro Bloqueado'}
+              </div>
+              <div className="flex items-center gap-3 text-slate-400">
+                  <Calendar size={14} className="text-primary" />
+                  <span className="text-[11px] font-bold">
+                    Vigencia: <span className="text-slate-700">{currentStation.startDate}</span> al <span className="text-slate-700">{currentStation.endDate}</span>
+                  </span>
+              </div>
            </div>
         </div>
       </div>
 
       <GradingFilters
+        allYears={allYears}
+        selectedYearId={selectedYearId}
+        onYearChange={setSelectedYearId}
         schoolYear={schoolYear}
         station={currentStation}
         selectedStationId={selectedStationId}
@@ -141,13 +212,18 @@ const TeacherGradingView: React.FC = () => {
           getSkillSelectionsForStudent={getSkillSelectionsForStudent}
         />
       ) : (
-        <div className="mt-10 text-center py-24 bg-white rounded-[3.5rem] border-2 border-dashed border-slate-100">
-          <Search size={48} className="mx-auto text-slate-100 mb-4" />
-          <p className="text-slate-400 font-black uppercase text-xs tracking-widest">No se encontraron estudiantes con los filtros actuales</p>
+        <div className="mt-10 text-center py-24 bg-white rounded-[3.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center">
+          <div className="w-20 h-20 bg-slate-50 text-slate-200 rounded-full flex items-center justify-center mb-6">
+            <GraduationCap size={48} />
+          </div>
+          <h3 className="text-xl font-black text-slate-800 tracking-tight">Sin estudiantes vinculados</h3>
+          <p className="text-slate-400 text-sm max-w-md mt-2 font-medium">
+            No se encontraron estudiantes registrados para el año <strong>{schoolYear.name}</strong>. 
+            Asegúrate de haber realizado el proceso de <strong>Matrícula Global</strong> en el módulo de Estudiantes Activos.
+          </p>
         </div>
       )}
 
-      {/* Alerta de Autoguardado */}
       <div className="mt-10 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
         <Zap className="absolute -right-8 -bottom-8 w-64 h-64 text-white/5 group-hover:text-white/10 transition-all duration-700" />
         <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">

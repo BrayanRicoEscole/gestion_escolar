@@ -1,14 +1,14 @@
+
 import { GoogleGenAI, Type } from '@google/genai';
 import { SYSTEM_INSTRUCTION } from './mentorPrompt';
 import { StudentComment } from 'types'
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.API_KEY!,
-});
-
 export async function generateMentorSuggestion(
   comment: StudentComment
 ): Promise<MentorAIResult> {
+  // Fix: Initialize GoogleGenAI inside the function to ensure up-to-date API key
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
   const promptData = `
 SÍNTESIS ACTUAL: ${comment.comentary || '(Vacío)'}
 
@@ -25,7 +25,8 @@ CONVIVENCIAL:
 - Desafíos: ${comment.challenges}
 
 PIAR: ${comment.piarDesc}
-LEARNING CROP: ${comment.learningCropDesc}
+// Fix: property name was learningCropDesc, should be learning_crop_desc
+LEARNING CROP: ${comment.learning_crop_desc}
 `;
 
   const response = await ai.models.generateContent({
@@ -54,4 +55,3 @@ export interface MentorAIResult {
   analysis: string;
   improvedVersion: string;
 }
-

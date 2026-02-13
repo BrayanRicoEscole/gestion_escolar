@@ -1,10 +1,10 @@
+
 import React from 'react';
 import {
   Loader2,
   MapPin,
   Home,
   UserCircle,
-  Briefcase,
 } from 'lucide-react';
 import { Student } from 'types';
 
@@ -12,19 +12,35 @@ interface Props {
   students: Student[];
   loading?: boolean;
   onSelect: (student: Student) => void;
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+  onToggleAll: () => void;
 }
 
 export const StudentsTable: React.FC<Props> = ({
   students,
   loading = false,
   onSelect,
+  selectedIds,
+  onToggleSelect,
+  onToggleAll
 }) => {
+  const allSelected = students.length > 0 && selectedIds.length === students.length;
+
   return (
     <div className="bg-white rounded-5xl border border-slate-100 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
+              <th className="px-6 py-5 w-12">
+                <input 
+                  type="checkbox" 
+                  checked={allSelected} 
+                  onChange={onToggleAll}
+                  className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                />
+              </th>
               <Th>Seed / Estudiante</Th>
               <Th>Documento ID</Th>
               <Th>Grupo Académico</Th>
@@ -40,8 +56,10 @@ export const StudentsTable: React.FC<Props> = ({
             ) : students.length > 0 ? (
               students.map(student => (
                 <StudentRow
-                  key={student.document}
+                  key={student.id || student.document}
                   student={student}
+                  isSelected={selectedIds.includes(student.id || '')}
+                  onToggle={() => onToggleSelect(student.id || '')}
                   onSelect={onSelect}
                 />
               ))
@@ -52,19 +70,17 @@ export const StudentsTable: React.FC<Props> = ({
         </table>
       </div>
 
-      <Footer count={students.length} />
+      <Footer count={students.length} selectedCount={selectedIds.length} />
     </div>
   );
 };
 
-/* ------------------ Subcomponentes ------------------ */
-
-const Th = ({
-  children,
-  align = 'left',
-}: {
+const Th: React.FC<{
   children: React.ReactNode;
   align?: 'left' | 'center' | 'right';
+}> = ({
+  children,
+  align = 'left',
 }) => (
   <th
     className={`px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-${align}`}
@@ -73,9 +89,9 @@ const Th = ({
   </th>
 );
 
-const LoadingRow = () => (
+const LoadingRow: React.FC = () => (
   <tr>
-    <td colSpan={6} className="py-20 text-center">
+    <td colSpan={7} className="py-20 text-center">
       <Loader2 size={32} className="animate-spin mx-auto text-primary mb-4" />
       <p className="text-xs font-black uppercase text-slate-400 tracking-widest">
         Cargando estudiantes…
@@ -84,9 +100,9 @@ const LoadingRow = () => (
   </tr>
 );
 
-const EmptyRow = () => (
+const EmptyRow: React.FC = () => (
   <tr>
-    <td colSpan={6} className="py-20 text-center">
+    <td colSpan={7} className="py-20 text-center">
       <p className="text-xs font-black uppercase text-slate-300 tracking-widest">
         No se encontraron estudiantes
       </p>
@@ -94,18 +110,29 @@ const EmptyRow = () => (
   </tr>
 );
 
-const StudentRow = ({
-  student,
-  onSelect,
-}: {
+const StudentRow: React.FC<{
   student: Student;
+  isSelected: boolean;
+  onToggle: () => void;
   onSelect: (s: Student) => void;
+}> = ({
+  student,
+  isSelected,
+  onToggle,
+  onSelect,
 }) => {
   const isRS = student.modality === 'RS';
 
   return (
-    <tr className="hover:bg-slate-50/50 transition-colors group">
-      {/* Estudiante */}
+    <tr className={`hover:bg-slate-50/50 transition-colors group ${isSelected ? 'bg-primary/5' : ''}`}>
+      <td className="px-6 py-5">
+        <input 
+          type="checkbox" 
+          checked={isSelected}
+          onChange={onToggle}
+          className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+        />
+      </td>
       <td className="px-8 py-5">
         <div className="flex items-center gap-4">
           <Avatar student={student} />
@@ -120,12 +147,10 @@ const StudentRow = ({
         </div>
       </td>
 
-      {/* Documento */}
       <td className="px-6 py-5 text-xs font-bold text-slate-600">
         {student.document}
       </td>
 
-      {/* Académico */}
       <td className="px-6 py-5">
         <div className="flex flex-col">
           <span className="text-xs font-black text-slate-700">
@@ -137,7 +162,6 @@ const StudentRow = ({
         </div>
       </td>
 
-      {/* Modalidad */}
       <td className="px-6 py-5">
         <div className="flex items-center gap-2">
           <span
@@ -157,7 +181,6 @@ const StudentRow = ({
         </div>
       </td>
 
-      {/* Estado */}
       <td className="px-6 py-5 text-center">
         <span
           className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase
@@ -171,20 +194,18 @@ const StudentRow = ({
         </span>
       </td>
 
-      {/* Acciones */}
       <td className="px-6 py-5 text-right">
         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <ActionButton onClick={() => onSelect(student)}>
             <UserCircle size={18} />
           </ActionButton>
-         
         </div>
       </td>
     </tr>
   );
 };
 
-const Avatar = ({ student }: { student: Student }) => (
+const Avatar: React.FC<{ student: Student }> = ({ student }) => (
   <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary flex items-center justify-center font-black text-sm border border-blue-100 overflow-hidden">
     {student.avatar_url ? (
       <img
@@ -198,12 +219,12 @@ const Avatar = ({ student }: { student: Student }) => (
   </div>
 );
 
-const ActionButton = ({
-  children,
-  onClick,
-}: {
+const ActionButton: React.FC<{
   children: React.ReactNode;
   onClick?: () => void;
+}> = ({
+  children,
+  onClick,
 }) => (
   <button
     onClick={onClick}
@@ -213,14 +234,21 @@ const ActionButton = ({
   </button>
 );
 
-const Footer = ({ count }: { count: number }) => (
+const Footer: React.FC<{ count: number; selectedCount: number }> = ({ count, selectedCount }) => (
   <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center">
-    <span className="text-xs font-bold text-slate-400">
-      Mostrando {count} estudiantes
-    </span>
+    <div className="flex items-center gap-4">
+      <span className="text-xs font-bold text-slate-400">
+        Mostrando {count} estudiantes
+      </span>
+      {selectedCount > 0 && (
+        <span className="text-xs font-black text-primary uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-primary/20 shadow-sm">
+          {selectedCount} seleccionados
+        </span>
+      )}
+    </div>
     <div className="flex gap-2">
-      <button disabled className="btn-disabled">Anterior</button>
-      <button disabled className="btn-disabled">Siguiente</button>
+      <button disabled className="px-4 py-2 text-xs font-bold text-slate-300">Anterior</button>
+      <button disabled className="px-4 py-2 text-xs font-bold text-slate-300">Siguiente</button>
     </div>
   </div>
 );

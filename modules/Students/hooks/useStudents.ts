@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react'
-import { getStudents } from '../../../services/api'
-import {Student } from 'types'
+import { getActiveStudents } from '../../../services/api'
+import { Student } from 'types'
 
 export const useStudents = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -9,7 +10,10 @@ export const useStudents = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      setStudents(await getStudents());
+      const data = await getActiveStudents();
+      setStudents(data);
+    } catch (e) {
+      console.error("[useStudents] Error al cargar activos:", e);
     } finally {
       setLoading(false);
     }

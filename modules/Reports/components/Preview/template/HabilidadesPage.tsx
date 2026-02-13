@@ -1,3 +1,6 @@
+
+// Add missing React import
+import React from 'react';
 import ReportHeader from "./ReportHeader";
 import ReportFooter from "./ReportFooter";
 import {StudentComment} from 'types'
@@ -43,8 +46,9 @@ const HabilidadesPage: React.FC<Props> = ({ comment}) => <div className="report-
             <span className="text-[#0f4899]">{comment?.academicNon}</span>
           </p>
           <p className="text-sm">
+            {/* Fix: Property name changed to learning_crop_desc to match types.ts */}
             <span className="font-bold ">● Reporte de los Learning Crops Descripción de la vivencia de aprendizaje práctico y el rol de la seed: </span>
-            <span className="text-[#0f4899]">{comment?.learningCropDesc}</span>
+            <span className="text-[#0f4899]">{comment?.learning_crop_desc}</span>
           </p>
         </div>
 

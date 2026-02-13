@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { syncStudentsFromSpreadsheet } from '../../../services/api';
 import { parseCSV } from '../utils/parseCSV';
@@ -14,7 +15,8 @@ export const useStudentSync = ({ onSuccess }: { onSuccess: () => void }) => {
     setStatus(null);
     try {
       const res = await syncStudentsFromSpreadsheet(data);
-      setStatus({ type: 'success', message: `OK: ${res.success}` });
+      const msg = `Nuevos: ${res.success}. Omitidos: ${res.skipped}. Errores: ${res.errors}`;
+      setStatus({ type: 'success', message: msg });
       onSuccess();
     } catch (e: any) {
       setStatus({ type: 'error', message: e.message });

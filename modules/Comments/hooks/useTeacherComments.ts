@@ -71,7 +71,8 @@ export function useTeacherComments({
             socialInteraction: newComment.social_interaction || '',
             challenges: newComment.challenges || '',
             piarDesc: newComment.piar_desc || '',
-            learningCropDesc: newComment.learning_crop_desc || '',
+            // Fix: property name was learningCropDesc, should be learning_crop_desc
+            learning_crop_desc: newComment.learning_crop_desc || '',
             comentary: newComment.comentary || '',
             comentaryStatus: newComment.comentary_status || 'draft',
             comentaryQuality: newComment.comentary_quality || 0,
@@ -120,7 +121,8 @@ export function useTeacherComments({
         socialInteraction: '',
         challenges: '',
         piarDesc: '',
-        learningCropDesc: '',
+        // Fix: property name was learningCropDesc, should be learning_crop_desc
+        learning_crop_desc: '',
       }
     );
   }, [comments, selectedStudentId, stationId]);

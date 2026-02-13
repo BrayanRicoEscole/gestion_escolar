@@ -124,7 +124,8 @@ const MomentosPage : React.FC<Props> = ({ currentStation, grades, student, skill
             </tr>
           </thead>
           <tbody>
-            {Object.entries(labs).map(([labName, items]) => {
+            {/* Cast Object.entries to fix type inference issues */}
+            {(Object.entries(labs) as [string, ReportSubject[]][]).map(([labName, items]) => {
               const style = labsStyles[labName] || labsStyles.General;
               return (
                 <React.Fragment key={labName}>

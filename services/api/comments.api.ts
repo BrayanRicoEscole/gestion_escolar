@@ -5,14 +5,22 @@ import { CommentTemplate, StudentComment } from 'types';
 export const getCommentTemplates=  async (schoolYearId: string): Promise<CommentTemplate[]> => {
     const { data } = await supabase.from('comment_templates').select('*').eq('school_year_id', schoolYearId);
     return (data || []).map(t => ({
-      id: t.id, schoolYearId: t.school_year_id, academicLevel: t.academic_level, fieldKey: t.field_key, content: t.content
+      id: t.id, 
+      schoolYearId: t.school_year_id, 
+      academicLevel: t.academic_level, 
+      fieldKey: t.field_key, 
+      content: t.content
     }));
   };
 
 export const saveCommentTemplates= async (templates: CommentTemplate[]): Promise<void> => {
     console.log(`[DB] Guardando ${templates.length} plantillas de comentarios...`);
     const payload = templates.map(t => ({
-      id: t.id, school_year_id: t.schoolYearId, academic_level: t.academicLevel, field_key: t.fieldKey, content: t.content
+      id: t.id, 
+      school_year_id: t.schoolYearId, 
+      academic_level: t.academicLevel, 
+      field_key: t.fieldKey, 
+      content: t.content
     }));
     if (payload.length > 0) {
       const { error } = await supabase.from('comment_templates').upsert(payload);
@@ -31,7 +39,7 @@ export const getStudentComments= async (stationId: string): Promise<StudentComme
       academicCons: c.academic_cons || '', academicNon: c.academic_non || '',
       emotionalSkills: c.emotional_skills || '', talents: c.talents || '',
       socialInteraction: c.social_interaction || '', challenges: c.challenges || '',
-      piarDesc: c.piar_desc || '', learningCropDesc: c.learning_crop_desc || '',
+      piarDesc: c.piar_desc || '', learning_crop_desc: c.learning_crop_desc || '',
       comentary: c.comentary || '',
       comentaryStatus: c.comentary_status || 'draft',
       comentaryQuality: c.comentary_quality || 0,
@@ -52,7 +60,7 @@ export const saveStudentComment= async (comment: StudentComment): Promise<void> 
       social_interaction: comment.socialInteraction, 
       challenges: comment.challenges,
       piar_desc: comment.piarDesc, 
-      learning_crop_desc: comment.learningCropDesc,
+      learning_crop_desc: comment.learning_crop_desc, 
       comentary: comment.comentary,
       comentary_status: comment.comentaryStatus,
       comentary_quality: comment.comentaryQuality,

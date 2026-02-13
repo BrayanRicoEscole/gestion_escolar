@@ -1,12 +1,15 @@
 
 import React, { useMemo } from 'react';
-import { Search, Filter, Home, MapPin, Layers } from 'lucide-react';
+import { Search, Filter, Home, MapPin, Layers, CalendarRange } from 'lucide-react';
 import { Card } from '../../../../../components/ui/Card';
 import { SchoolYear, Station } from '../../../../../types';
 
 export type ConsolidationStatus = 'all' | 'consolidated' | 'not_consolidated';
 
 interface GradingFiltersProps {
+  allYears: {id: string, name: string}[];
+  selectedYearId: string;
+  onYearChange: (id: string) => void;
   schoolYear: SchoolYear;
   station: Station;
   selectedStationId: string;
@@ -28,6 +31,9 @@ interface GradingFiltersProps {
 }
 
 export const GradingFilters: React.FC<GradingFiltersProps> = ({
+  allYears,
+  selectedYearId,
+  onYearChange,
   schoolYear,
   station,
   selectedStationId,
@@ -53,7 +59,6 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
 
   const currentSubjectCourses = useMemo(() => currentSubject?.courses || [], [currentSubject]);
 
-  // Extraer niveles y modalidades únicos permitidos para esta asignatura basado estrictamente en 'courses'
   const { availableLevels, availableModalities } = useMemo(() => {
     const levels = new Set<string>();
     const modalities = new Set<string>();
@@ -72,6 +77,27 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
 
   return (
     <div className="space-y-4 mb-8">
+      {/* Selector de Contexto Global (Año) */}
+      <div className="flex items-center gap-4 bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-2xl">
+         <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-primary shadow-inner border border-white/5">
+            <CalendarRange size={24} />
+         </div>
+         <div className="flex-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1 block">Contexto Académico</label>
+            <select 
+              value={selectedYearId}
+              onChange={e => onYearChange(e.target.value)}
+              className="bg-transparent border-none text-2xl font-black text-white p-0 outline-none cursor-pointer focus:ring-0"
+            >
+              {allYears.map(y => <option key={y.id} value={y.id} className="text-slate-900">{y.name}</option>)}
+            </select>
+         </div>
+         <div className="hidden md:block text-right">
+            <p className="text-[10px] font-black uppercase text-white/30 tracking-widest">Estado</p>
+            <p className="text-xs font-bold text-green-400">Año Académico Seleccionado</p>
+         </div>
+      </div>
+
       <Card className="flex flex-wrap items-center gap-6" padding="sm">
         <div className="flex items-center gap-4 border-r pr-6">
           <Filter size={20} className="text-slate-400" />
@@ -88,7 +114,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
               onChange={e => onStationChange(e.target.value)}
               className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              {schoolYear.stations?.map(st => (
+              {schoolYear?.stations?.map(st => (
                 <option key={st.id} value={st.id}>{st.name}</option>
               ))}
             </select>
@@ -101,7 +127,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
               onChange={e => onSubjectChange(e.target.value)}
               className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              {station.subjects?.map(subject => (
+              {station?.subjects?.map(subject => (
                 <option key={subject.id} value={subject.id}>{subject.name}</option>
               ))}
             </select>

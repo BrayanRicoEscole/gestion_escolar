@@ -87,6 +87,20 @@ export interface SchoolYear {
   stations: Station[];
 }
 
+export interface AcademicRecord {
+  id: string;
+  student_id: string;
+  school_year_id: string;
+  school_year_name?: string;
+  grade: string;
+  academic_level: string;
+  atelier: string;
+  modality: string;
+  status: string;
+  observations?: string;
+  created_at: string;
+}
+
 export interface Student {
   id?: string;
   full_name: string;
@@ -139,6 +153,7 @@ export interface Student {
   poliza?: string;
   fecha_activacion_poliza?: string;
   fecha_renovacion_poliza?: string;
+  academic_history?: AcademicRecord[];
 }
 
 export interface ReportTemplate {
@@ -207,7 +222,7 @@ export interface StudentComment {
   socialInteraction: string;
   challenges: string;
   piarDesc: string;
-  learningCropDesc: string;
+  learning_crop_desc: string;
   comentary?: string;
   comentaryStatus?: CommentStatus;
   comentaryQuality?: number;

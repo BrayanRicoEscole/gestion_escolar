@@ -1,5 +1,9 @@
 
-export const DetailSection = ({ icon, title, color, children }: { icon: React.ReactNode, title: string, color: string, children: React.ReactNode }) => (
+// Add missing React import to resolve React.ReactNode namespace errors
+import React from 'react';
+
+// Fix: Make children optional in the props type to ensure it is correctly recognized when passed as nested elements in JSX
+export const DetailSection = ({ icon, title, color, children }: { icon: React.ReactNode, title: string, color: string, children?: React.ReactNode }) => (
   <div className="space-y-4">
     <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
        <div className={`${color} opacity-80`}>{icon}</div>

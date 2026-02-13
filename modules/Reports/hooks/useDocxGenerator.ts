@@ -119,7 +119,8 @@ export function useDocxGenerator({
         social_interaction: comment?.socialInteraction || 'Sin registros convivenciales.',
         challenges: comment?.challenges || 'Sin desafíos registrados.',
         piar_desc: comment?.piarDesc || 'No aplica / Sin registros.',
-        learning_crop_desc: comment?.learningCropDesc || 'Sin vivencia registrada.',
+        // Fix: property name was learningCropDesc, should be learning_crop_desc
+        learning_crop_desc: comment?.learning_crop_desc || 'Sin vivencia registrada.',
         comment: comment?.comentary || '',
         
         // Estructura de Tabla

@@ -17,11 +17,15 @@ import { useTeacherComments } from './hooks/useTeacherComments';
 import { useDateLock } from './hooks/useDateLock';
 import { useMentorAI } from './hooks/useMentorAI';
 
-export const TeacherCommentsView: React.FC = () => {
+const TeacherCommentsView: React.FC = () => {
   // Optimizamos: NO activar realtime de notas y desactivamos el filtro de materia
   const grading = useGrading({ realtime: false, subjectFilter: false });
   const {
     isLoading = true,
+    // Add missing props destructuring
+    allYears = [],
+    selectedYearId = '',
+    setSelectedYearId = () => {},
     schoolYear,
     currentStation,
     filteredStudents = [],
@@ -108,6 +112,10 @@ export const TeacherCommentsView: React.FC = () => {
       </div>
 
       <GradingFilters
+        // Add missing props allYears, selectedYearId, onYearChange
+        allYears={allYears}
+        selectedYearId={selectedYearId}
+        onYearChange={setSelectedYearId}
         schoolYear={schoolYear} station={currentStation} selectedStationId={selectedStationId} selectedSubjectId={selectedSubjectId}
         selectedCourse={selectedCourse} consolidationFilter="all" selectedAtelier={selectedAtelier} selectedModality={selectedModality}
         selectedAcademicLevel={selectedAcademicLevel} searchTerm={searchTerm} onStationChange={setSelectedStationId}
