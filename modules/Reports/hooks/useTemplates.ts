@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ReportTemplate } from '../../../../types';
-import { listTemplates } from '../../../../services/api';
+import { ReportTemplate } from 'types';
+import { listTemplates } from '../../../services/api';
 
 export function useTemplates() {
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
