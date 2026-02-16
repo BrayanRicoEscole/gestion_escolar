@@ -33,6 +33,8 @@ const App: React.FC = () => {
       if (session?.user) {
         const up = await syncUserProfile(session.user);
         setProfile(up);
+        console.log(`[AUTH] 👤 Sesión iniciada. Rol: ${up?.role?.toUpperCase()}`);
+        
         // Grower solo tiene acceso a Calificaciones por defecto
         if (up?.role === 'grower') {
           setActiveModule('grading');
@@ -46,6 +48,7 @@ const App: React.FC = () => {
       if (session?.user) {
         const up = await syncUserProfile(session.user);
         setProfile(up);
+        console.log(`[AUTH] 🔄 Cambio de estado. Rol detectado: ${up?.role?.toUpperCase()}`);
       } else {
         setProfile(null);
       }
@@ -141,7 +144,7 @@ const App: React.FC = () => {
           <div className="px-6 mb-4">
             <div className="bg-slate-900 text-white p-4 rounded-[1.5rem] flex items-center gap-4 shadow-xl border border-white/10">
               <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border border-white/10">
-                {profile.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" /> : <UserCircle size={24} />}
+                {profile.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" alt="Avatar" /> : <UserCircle size={24} />}
               </div>
               <div className="flex-1 truncate">
                 <p className="text-[9px] font-black uppercase text-white/40 tracking-widest">{profile.role}</p>
