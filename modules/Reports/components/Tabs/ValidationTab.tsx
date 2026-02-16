@@ -1,11 +1,16 @@
 
 import React, { useState } from 'react';
-import { Search, Filter, Send, CheckCircle, CreditCard, Clock, Eye } from 'lucide-react';
+import { Search, Filter, Send, CheckCircle, CreditCard, Clock, Eye, Loader2, MailCheck } from 'lucide-react';
 import { Card } from '../../../../components/ui/Card';
 import { Button } from '../../../../components/ui/Button';
 import { ValidationBadge } from '../Shared/ValidationBadge';
 import { ReportPreviewModal } from '../Preview/ReportPreviewModal';
+import { usePdfGenerator } from '../../hooks/usePdfGenerator';
+import { sendAcademicReportEmail } from '../../../../services/api/email.api';
+import { supabase } from '../../../../services/api/client';
 import { Student, SchoolYear, Station, GradeEntry, StudentComment, SkillSelection } from '../../../../types';
+import ReactDOM from 'react-dom/client';
+import GlobalLearningReport from '../Preview/template/GlobalLearningReport';
 
 interface ValidationTabProps {
   validationResults: any[];
@@ -33,6 +38,83 @@ export const ValidationTab: React.FC<ValidationTabProps> = ({
   skillSelections
 }) => {
   const [previewStudent, setPreviewStudent] = useState<any | null>(null);
+  const [isBulkSending, setIsBulkSending] = useState(false);
+  const [sendingProgress, setSendingProgress] = useState(0);
+  const { generatePdfBlob } = usePdfGenerator();
+
+  const handleBulkSend = async () => {
+    const aptStudents = validationResults.filter(r => r.canSend);
+    if (!aptStudents.length || !currentStation) return;
+
+    if (!window.confirm(`¿Estás seguro de enviar los reportes de ${aptStudents.length} estudiantes aptos? Esta acción enviará correos a acudientes y equipo financiero.`)) {
+      return;
+    }
+
+    setIsBulkSending(true);
+    setSendingProgress(0);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const senderEmail = session?.user?.email;
+
+    // Crear un contenedor temporal oculto pero presente en el DOM
+    const tempDiv = document.createElement('div');
+    tempDiv.id = 'bulk-pdf-render-target';
+    tempDiv.style.position = 'fixed';
+    tempDiv.style.top = '0';
+    tempDiv.style.left = '0';
+    tempDiv.style.zIndex = '-1000'; // Detrás de todo
+    tempDiv.style.opacity = '0.01'; // Casi invisible pero renderizado
+    tempDiv.style.pointerEvents = 'none';
+    tempDiv.style.width = '1050px'; 
+    document.body.appendChild(tempDiv);
+    
+    const root = ReactDOM.createRoot(tempDiv);
+
+    try {
+      for (let i = 0; i < aptStudents.length; i++) {
+        const item = aptStudents[i];
+        const student = item.student;
+        
+        // 1. Renderizar el reporte del estudiante específico
+        root.render(
+          <GlobalLearningReport 
+            student={student}
+            schoolYear={schoolYear}
+            currentStation={currentStation}
+            grades={allGrades}
+            skillSelections={skillSelections}
+            comment={allComments.find(c => c.studentId === student.id)}
+          />
+        );
+
+        // Aumentamos la espera para asegurar que React termine el renderizado de todas las páginas
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // 2. Generar el Blob PDF
+        const pdfBlob = await generatePdfBlob('bulk-pdf-render-target', `Reporte_${student.full_name}.pdf`);
+
+        // 3. Enviar por correo
+        await sendAcademicReportEmail({
+          student,
+          pdfBlob,
+          senderEmail,
+          stationName: currentStation.name
+        });
+
+        setSendingProgress(Math.round(((i + 1) / aptStudents.length) * 100));
+      }
+      alert("Proceso de envío masivo completado.");
+    } catch (e: any) {
+      console.error("Error en envío masivo:", e);
+      alert(`Hubo un error en el proceso: ${e.message}`);
+    } finally {
+      setIsBulkSending(false);
+      root.unmount();
+      if (document.body.contains(tempDiv)) {
+        document.body.removeChild(tempDiv);
+      }
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
@@ -69,7 +151,14 @@ export const ValidationTab: React.FC<ValidationTabProps> = ({
             <p className="text-[10px] font-black text-slate-400 uppercase">Estación Finaliza</p>
             <p className="text-xs font-bold text-slate-700">{currentStation?.endDate || '—'}</p>
           </div>
-          <Button icon={Send} disabled={!validationResults.some(r => r.canSend)}>Enviar Reportes Aptos</Button>
+          <button 
+            onClick={handleBulkSend}
+            disabled={isBulkSending || !validationResults.some(r => r.canSend)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-30 ${isBulkSending ? 'bg-slate-700 text-white' : 'bg-primary text-white hover:bg-primary-hover'}`}
+          >
+            {isBulkSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            {isBulkSending ? `Enviando ${sendingProgress}%` : `Enviar ${validationResults.filter(r => r.canSend).length} Aptos`}
+          </button>
         </div>
       </Card>
 
