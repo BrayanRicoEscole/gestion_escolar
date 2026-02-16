@@ -8,3 +8,4 @@ export * from './api/comments.api';
 export * from './api/templates.api';
 export * from './api/auth.api';
 export * from './api/dashboard.api';
+export * from './api/users.api';

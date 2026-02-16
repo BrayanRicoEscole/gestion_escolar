@@ -134,7 +134,7 @@ export const Step8Skills: React.FC<{
                 <span className="text-[10px] font-black uppercase">Tips</span>
              </div>
              <p className="text-[11px] font-medium text-slate-600 leading-relaxed">
-               Las habilidades definidas aquí se mostrarán automáticamente a los docentes que califiquen el nivel <strong>{selectedLevel}</strong> en <strong>{currentSubject?.name}</strong>.
+               Las habilidades definidas aquí se mostrarán automáticamente a los growers que califiquen el nivel <strong>{selectedLevel}</strong> en <strong>{currentSubject?.name}</strong>.
              </p>
           </div>
         </div>

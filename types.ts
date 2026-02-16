@@ -1,4 +1,15 @@
 
+export type UserRole = 'support' | 'grower';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  avatar_url?: string;
+  role: UserRole;
+  last_login: string;
+}
+
 export enum Area {
   STEAM = 'Steam',
   CLEPE = 'ClePe',

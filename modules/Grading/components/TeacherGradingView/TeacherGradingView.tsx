@@ -236,7 +236,7 @@ const TeacherGradingView: React.FC = () => {
             </h4>
             <p className="text-sm text-white/60 font-medium leading-relaxed max-w-4xl">
                 Toda calificación ingresada se sincroniza **instantáneamente** con el servidor. 
-                Si otro docente edita la misma planilla, verás los cambios reflejados sin necesidad de recargar. 
+                Si otro Grower edita la misma planilla, verás los cambios reflejados sin necesidad de recargar. 
             </p>
           </div>
           <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
