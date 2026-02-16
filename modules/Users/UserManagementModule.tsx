@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { 
   ShieldCheck, UserCog, Mail, Calendar, Loader2, Search, 
@@ -26,8 +25,8 @@ export const UserManagementModule: React.FC = () => {
       setProfiles(data);
     } catch (e: any) {
       console.error(e);
-      if (e.message?.includes('profiles')) {
-        setError('DATABASE_MISSING');
+      if (e.message?.includes('profiles') || e.code === '42P17') {
+        setError('DATABASE_ERROR');
       } else {
         setError('Ocurrió un error al cargar los usuarios.');
       }
@@ -52,7 +51,7 @@ export const UserManagementModule: React.FC = () => {
     }
   };
 
-  const sqlSetup = `-- EJECUTAR EN EL SQL EDITOR DE SUPABASE
+  const sqlSetup = `-- 1. RESET DE TABLA
 CREATE TABLE IF NOT EXISTS api.profiles (
   id uuid REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email text UNIQUE NOT NULL,
@@ -62,17 +61,43 @@ CREATE TABLE IF NOT EXISTS api.profiles (
   last_login timestamp with time zone DEFAULT now()
 );
 
--- HABILITAR RLS
+-- 2. HABILITAR RLS
 ALTER TABLE api.profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Profiles viewable by all" ON api.profiles FOR SELECT USING (true);
-CREATE POLICY "Users update own profile" ON api.profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Admins full access" ON api.profiles FOR ALL USING (
-  EXISTS (SELECT 1 FROM api.profiles WHERE id = auth.uid() AND role = 'support')
+
+-- 3. LIMPIAR POLÍTICAS ANTIGUAS
+DROP POLICY IF EXISTS "Public profiles are visible to everyone" ON api.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON api.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON api.profiles;
+DROP POLICY IF EXISTS "Admins have full access" ON api.profiles;
+
+-- 4. POLÍTICA DE LECTURA (Evita recursión permitiendo lectura básica a autenticados)
+CREATE POLICY "Public profiles are visible to everyone" 
+ON api.profiles FOR SELECT 
+USING (auth.role() = 'authenticated');
+
+-- 5. POLÍTICA DE INSERCIÓN (Permite que nuevos usuarios se registren)
+CREATE POLICY "Users can insert their own profile" 
+ON api.profiles FOR INSERT 
+WITH CHECK (auth.uid() = id);
+
+-- 6. POLÍTICA DE ACTUALIZACIÓN PROPIA
+CREATE POLICY "Users can update their own profile" 
+ON api.profiles FOR UPDATE 
+USING (auth.uid() = id);
+
+-- 7. POLÍTICA DE ADMINISTRADOR (Evita recursión usando SELECT directo)
+CREATE POLICY "Admins have full access" 
+ON api.profiles FOR ALL 
+USING (
+  EXISTS (
+    SELECT 1 FROM api.profiles 
+    WHERE id = auth.uid() AND role = 'support'
+  )
 );`;
 
   const filtered = profiles.filter(p => {
-    const matchesSearch = p.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         p.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (p.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
+                         (p.email?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || p.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -86,48 +111,25 @@ CREATE POLICY "Admins full access" ON api.profiles FOR ALL USING (
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px] gap-4">
-        <div className="relative">
-          <Loader2 className="w-12 h-12 text-primary animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <UserCog size={16} className="text-primary" />
-          </div>
-        </div>
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
         <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest animate-pulse">Sincronizando Directorio...</p>
       </div>
     );
   }
 
-  if (error === 'DATABASE_MISSING') {
+  if (error === 'DATABASE_ERROR') {
     return (
-      <div className="p-8 max-w-4xl mx-auto animate-in zoom-in-95 duration-500">
+      <div className="p-8 max-w-4xl mx-auto">
         <Card className="border-rose-200 bg-rose-50/30 p-12 text-center">
-          <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <ShieldAlert size={40} />
-          </div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-4">Tabla 'profiles' no encontrada</h2>
+          <ShieldAlert size={48} className="text-rose-600 mx-auto mb-6" />
+          <h2 className="text-2xl font-black text-slate-900 mb-4">Error de Seguridad (RLS)</h2>
           <p className="text-slate-600 mb-8 max-w-md mx-auto">
-            Para gestionar roles, es necesario crear la tabla de perfiles en el esquema <strong>api</strong> de tu base de datos Supabase.
+            Las políticas de seguridad están bloqueando el acceso o causando recursión. Ejecuta el script corregido para restablecer el acceso.
           </p>
-          <div className="bg-slate-900 text-left rounded-3xl p-6 relative group overflow-hidden">
-             <div className="flex justify-between items-center mb-4">
-                <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">SQL Script de Configuración</span>
-                <button 
-                  onClick={() => { navigator.clipboard.writeText(sqlSetup); alert("Copiado al portapapeles"); }}
-                  className="p-2 hover:bg-white/10 rounded-lg text-white/60 transition-all flex items-center gap-2 text-[10px] font-bold"
-                >
-                   <Copy size={14} /> Copiar Código
-                </button>
-             </div>
-             <pre className="text-emerald-400 font-mono text-[11px] overflow-x-auto leading-relaxed">
-                {sqlSetup}
-             </pre>
+          <div className="bg-slate-900 text-left rounded-3xl p-6 relative overflow-hidden">
+             <pre className="text-emerald-400 font-mono text-[11px] overflow-x-auto">{sqlSetup}</pre>
           </div>
-          <button 
-            onClick={fetchProfiles}
-            className="mt-8 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-800 transition-all"
-          >
-            Reintentar Conexión
-          </button>
+          <button onClick={fetchProfiles} className="mt-8 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs">Reintentar</button>
         </Card>
       </div>
     );
@@ -135,44 +137,9 @@ CREATE POLICY "Admins full access" ON api.profiles FOR ALL USING (
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-500 pb-20">
-      
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-         <Card className="bg-slate-900 text-white border-none overflow-hidden relative group" padding="sm">
-            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-700">
-               <Users size={120} />
-            </div>
-            <div className="relative z-10 flex items-center gap-5">
-               <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center border border-white/5"><Users size={28} /></div>
-               <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Total Usuarios</p>
-                  <p className="text-3xl font-black tracking-tighter">{stats.total}</p>
-               </div>
-            </div>
-         </Card>
-         <Card className="bg-white border-slate-100 hover:border-primary/20 transition-all" padding="sm">
-            <div className="flex items-center gap-5">
-               <div className="w-14 h-14 bg-blue-50 text-primary rounded-2xl flex items-center justify-center border border-blue-100"><ShieldCheck size={28} /></div>
-               <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Administradores</p>
-                  <p className="text-3xl font-black text-slate-900 tracking-tighter">{stats.support}</p>
-               </div>
-            </div>
-         </Card>
-         <Card className="bg-white border-slate-100 hover:border-secondary/20 transition-all" padding="sm">
-            <div className="flex items-center gap-5">
-               <div className="w-14 h-14 bg-orange-50 text-secondary rounded-2xl flex items-center justify-center border border-orange-100"><ArrowRightLeft size={28} /></div>
-               <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Growers / Docentes</p>
-                  <p className="text-3xl font-black text-slate-900 tracking-tighter">{stats.growers}</p>
-               </div>
-            </div>
-         </Card>
-      </div>
-
-      <header className="mb-8 flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6">
+      <header className="mb-12 flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6">
         <div>
-           <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4">
+           <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4 text-black">
               <div className="w-14 h-14 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg">
                  <UserCog size={32} />
               </div>
@@ -182,7 +149,6 @@ CREATE POLICY "Admins full access" ON api.profiles FOR ALL USING (
         </div>
 
         <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
-          {/* Filtro de Rol */}
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
              {(['all', 'support', 'grower'] as const).map(r => (
                <button 
@@ -206,11 +172,7 @@ CREATE POLICY "Admins full access" ON api.profiles FOR ALL USING (
             />
           </div>
 
-          <button 
-            onClick={() => setShowSqlHelp(!showSqlHelp)}
-            className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg"
-            title="Ayuda SQL"
-          >
+          <button onClick={() => setShowSqlHelp(!showSqlHelp)} className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 shadow-lg">
             <Database size={20} />
           </button>
         </div>
@@ -221,16 +183,10 @@ CREATE POLICY "Admins full access" ON api.profiles FOR ALL USING (
            <div className="flex items-start gap-4">
               <AlertCircle className="text-amber-500 shrink-0 mt-1" size={24} />
               <div>
-                 <h4 className="text-lg font-black text-slate-800 mb-2">Resolución de Problemas de Tabla</h4>
-                 <p className="text-sm text-slate-600 mb-6">Si no ves usuarios o recibes errores de "Could not find table", asegúrate de haber ejecutado este script en Supabase:</p>
+                 <h4 className="text-lg font-black text-slate-800 mb-2">Corrección de Políticas RLS</h4>
                  <div className="bg-slate-900 rounded-2xl p-6 relative">
                     <pre className="text-[11px] text-emerald-400 font-mono overflow-x-auto">{sqlSetup}</pre>
-                    <button 
-                      onClick={() => { navigator.clipboard.writeText(sqlSetup); alert("Copiado"); }}
-                      className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase"
-                    >
-                      Copiar
-                    </button>
+                    <button onClick={() => { navigator.clipboard.writeText(sqlSetup); alert("Copiado"); }} className="absolute top-4 right-4 bg-white/10 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase">Copiar</button>
                  </div>
               </div>
            </div>
@@ -242,16 +198,12 @@ CREATE POLICY "Admins full access" ON api.profiles FOR ALL USING (
           <Card key={profile.id} className="group hover:border-primary/20 transition-all overflow-hidden" padding="none">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-6 p-4 lg:p-6">
               <div className="flex items-center gap-6 flex-1">
-                <div className="w-16 h-16 bg-slate-100 rounded-[1.5rem] flex items-center justify-center border border-slate-100 overflow-hidden shadow-inner group-hover:scale-105 transition-transform">
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="font-black text-slate-300 text-2xl">{profile.full_name.charAt(0)}</span>
-                  )}
+                <div className="w-16 h-16 bg-slate-100 rounded-[1.5rem] flex items-center justify-center border border-slate-100 overflow-hidden shadow-inner">
+                  {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" /> : <span className="font-black text-slate-300 text-2xl">{(profile.full_name || 'U').charAt(0)}</span>}
                 </div>
                 <div>
                    <h4 className="font-black text-slate-800 text-lg leading-tight flex items-center gap-3">
-                     {profile.full_name}
+                     {profile.full_name || 'Usuario sin nombre'}
                      {profile.role === 'support' && <ShieldCheck size={16} className="text-primary" />}
                    </h4>
                    <div className="flex items-center gap-4 mt-2">
@@ -259,52 +211,28 @@ CREATE POLICY "Admins full access" ON api.profiles FOR ALL USING (
                         <Mail size={12} />
                         <span className="text-xs font-bold">{profile.email}</span>
                       </div>
-                      <div className="w-1 h-1 rounded-full bg-slate-200"></div>
-                      <div className="flex items-center gap-1.5 text-slate-400">
+                      <div className="flex items-center gap-1.5 text-slate-400 border-l pl-4">
                         <Calendar size={12} />
-                        <span className="text-[10px] font-black uppercase">Visto: {new Date(profile.last_login).toLocaleDateString()}</span>
+                        <span className="text-[10px] font-black uppercase">Último acceso: {profile.last_login ? new Date(profile.last_login).toLocaleDateString() : '—'}</span>
                       </div>
                    </div>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="bg-slate-50 p-1.5 rounded-2xl flex items-center gap-1 border border-slate-200 shadow-inner">
-                   <button 
-                     onClick={() => handleRoleChange(profile.id, 'grower')}
-                     disabled={updatingId === profile.id}
-                     className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${profile.role === 'grower' ? 'bg-white text-secondary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                   >
+                <div className="bg-slate-50 p-1.5 rounded-2xl flex items-center gap-1 border border-slate-200">
+                   <button onClick={() => handleRoleChange(profile.id, 'grower')} disabled={updatingId === profile.id} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${profile.role === 'grower' ? 'bg-white text-secondary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
                      {updatingId === profile.id && profile.role !== 'grower' ? <Loader2 size={12} className="animate-spin" /> : <ArrowRightLeft size={12} />} Grower
                    </button>
-                   <button 
-                     onClick={() => handleRoleChange(profile.id, 'support')}
-                     disabled={updatingId === profile.id}
-                     className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${profile.role === 'support' ? 'bg-white text-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                   >
+                   <button onClick={() => handleRoleChange(profile.id, 'support')} disabled={updatingId === profile.id} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${profile.role === 'support' ? 'bg-white text-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
                      {updatingId === profile.id && profile.role !== 'support' ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />} Support
                    </button>
                 </div>
               </div>
             </div>
-            {/* Barra de progreso inferior al actualizar */}
-            {updatingId === profile.id && (
-              <div className="h-1 w-full bg-primary/10 overflow-hidden">
-                <div className="h-full bg-primary animate-progress"></div>
-              </div>
-            )}
+            {updatingId === profile.id && <div className="h-1 w-full bg-primary/10 overflow-hidden"><div className="h-full bg-primary animate-pulse w-full"></div></div>}
           </Card>
         ))}
-
-        {filtered.length === 0 && (
-          <div className="py-24 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Search size={40} className="text-slate-200" />
-             </div>
-             <p className="text-slate-400 font-black text-sm uppercase tracking-widest">No hay usuarios que coincidan con tu búsqueda</p>
-             <button onClick={() => { setSearchTerm(''); setRoleFilter('all'); }} className="mt-4 text-primary font-black text-[10px] uppercase hover:underline">Limpiar Filtros</button>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -3,15 +3,29 @@ import { UserProfile, UserRole } from 'types';
 
 /**
  * Sincroniza el perfil del usuario de Auth con la tabla de la base de datos.
- * Actualiza 'last_login' en cada entrada exitosa.
  */
 export const syncUserProfile = async (user: any): Promise<UserProfile | null> => {
-  if (!user) return null;
+  if (!user) {
+    console.warn("[DEBUG:Profiles] ❌ No hay usuario para sincronizar.");
+    return null;
+  }
+
+  console.group("[DEBUG:Profiles] Sincronización de Perfil");
+  console.log("ID de Auth:", user.id);
+  console.log("Email:", user.email);
+
+  const volatileProfile: UserProfile = {
+    id: user.id,
+    email: user.email,
+    full_name: user.user_metadata?.full_name || user.email,
+    avatar_url: user.user_metadata?.avatar_url,
+    role: 'grower',
+    last_login: new Date().toISOString()
+  };
 
   try {
-    console.log("[Profiles] 📥 Sincronizando perfil para:", user.email);
-
-    // 1. Intentar obtener perfil y actualizar last_login de una vez
+    // 1. Intentar actualizar y obtener
+    console.log("-> Ejecutando SELECT/UPDATE en 'profiles'...");
     const { data, error } = await supabase
       .from('profiles')
       .update({ last_login: new Date().toISOString() })
@@ -20,52 +34,40 @@ export const syncUserProfile = async (user: any): Promise<UserProfile | null> =>
       .maybeSingle();
 
     if (error) {
-      // Error code para tabla no encontrada en PostgREST
-      if (error.code === 'PGRST204' || error.code === 'PGRST205' || error.message?.includes('profiles')) {
-        console.warn("[Profiles] ⚠️ La tabla 'profiles' no existe en el esquema 'api'. Retornando perfil volátil (Default: Grower).");
-        return {
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || user.email,
-          role: 'grower',
-          last_login: new Date().toISOString()
-        };
-      }
-      throw error;
+      console.error("-> ❌ Error de Supabase:", error.code, error.message);
+      console.log("-> Usando Perfil Volátil (Emergencia)");
+      console.groupEnd();
+      return volatileProfile;
     }
 
     if (data) {
-      console.log("[Profiles] ✅ Perfil recuperado de DB. Rol:", data.role);
+      console.log("-> ✅ Perfil encontrado en DB:", data);
+      console.groupEnd();
       return data;
     }
 
-    // 2. Si no existe, crear perfil inicial
-    console.log("[Profiles] ✨ Perfil no encontrado. Creando nuevo registro...");
-    const newProfile = {
-      id: user.id,
-      email: user.email,
-      full_name: user.user_metadata?.full_name || user.email,
-      avatar_url: user.user_metadata?.avatar_url,
-      role: 'grower', // Rol por defecto
-      last_login: new Date().toISOString()
-    };
-
+    // 2. Si no existe, intentar crear
+    console.log("-> ℹ️ No existe registro. Intentando INSERT...");
     const { data: created, error: createError } = await supabase
       .from('profiles')
-      .insert(newProfile)
+      .insert(volatileProfile)
       .select()
       .single();
 
     if (createError) {
-      console.error("[Profiles] ❌ No se pudo crear el registro en DB:", createError.message);
-      return newProfile as UserProfile;
+      console.error("-> ❌ Error al crear perfil (INSERT):", createError.code, createError.message);
+      console.log("-> Usando Perfil Volátil");
+      console.groupEnd();
+      return volatileProfile;
     }
 
-    console.log("[Profiles] ✅ Nuevo perfil creado. Rol:", created.role);
+    console.log("-> ✨ Perfil creado exitosamente:", created);
+    console.groupEnd();
     return created;
   } catch (err) {
-    console.error("[Profiles] 🔥 Error crítico en sincronización:", err);
-    return null;
+    console.error("-> 🔥 Error crítico en syncUserProfile:", err);
+    console.groupEnd();
+    return volatileProfile;
   }
 };
 
@@ -73,15 +75,17 @@ export const syncUserProfile = async (user: any): Promise<UserProfile | null> =>
  * Lista todos los perfiles registrados (Solo Support)
  */
 export const getAllUserProfiles = async (): Promise<UserProfile[]> => {
+  console.log("[DEBUG:Profiles] 📥 Listando todos los usuarios...");
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .order('full_name');
 
   if (error) {
-    console.error("[Profiles] Error al listar usuarios:", error);
+    console.error("[DEBUG:Profiles] ❌ Error al listar usuarios:", error);
     throw error;
   }
+  console.log(`[DEBUG:Profiles] ✅ ${data?.length || 0} usuarios recuperados.`);
   return data || [];
 };
 
@@ -89,14 +93,15 @@ export const getAllUserProfiles = async (): Promise<UserProfile[]> => {
  * Cambia el rol institucional de un usuario
  */
 export const updateUserRole = async (userId: string, role: UserRole): Promise<void> => {
-  console.log(`[Profiles] 🛠️ Cambiando rol de usuario ${userId} a ${role}`);
+  console.log(`[DEBUG:Profiles] 🛠️ Intentando cambiar rol: ${userId} -> ${role}`);
   const { error } = await supabase
     .from('profiles')
     .update({ role })
     .eq('id', userId);
 
   if (error) {
-    console.error("[Profiles] Error al actualizar rol:", error);
+    console.error("[DEBUG:Profiles] ❌ Error al actualizar rol:", error);
     throw error;
   }
+  console.log("[DEBUG:Profiles] ✅ Rol actualizado en DB.");
 };

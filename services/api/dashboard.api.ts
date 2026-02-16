@@ -1,4 +1,3 @@
-
 import { supabase } from './client';
 
 export interface DashboardStats {
@@ -14,46 +13,48 @@ export interface DashboardStats {
 }
 
 export const getDashboardStats = async (): Promise<DashboardStats> => {
-  // 1. Obtener todos los estudiantes para agregación local (más eficiente para volumen escolar medio)
+  console.log("[DEBUG:Dashboard] 📊 Solicitando estadísticas...");
+  
   const { data: students, error: studentError } = await supabase
     .from('students')
     .select('*');
 
-  if (studentError) throw studentError;
+  if (studentError) {
+    console.error("[DEBUG:Dashboard] ❌ Error recuperando estudiantes:", studentError);
+    throw studentError;
+  }
 
-  const total = students?.length || 0;
+  console.log(`[DEBUG:Dashboard] ✅ ${students?.length || 0} estudiantes encontrados.`);
+
   const active = students?.filter(s => s.estado_actual?.toLowerCase().includes('activo')) || [];
   const retired = students?.filter(s => !s.estado_actual?.toLowerCase().includes('activo')) || [];
   
-  // Agregación por Modalidad
+  console.log(`[DEBUG:Dashboard] 📈 Activos: ${active.length}, Retirados: ${retired.length}`);
+
   const modalityCounts = active.reduce((acc: any, s) => {
     const mod = s.modality === 'RS' ? 'Renfort Sede' : 'Renfort Casa';
     acc[mod] = (acc[mod] || 0) + 1;
     return acc;
   }, {});
 
-  // Agregación por Grado
   const gradeCounts = active.reduce((acc: any, s) => {
     const g = s.grade || 'Sin Grado';
     acc[g] = (acc[g] || 0) + 1;
     return acc;
   }, {});
 
-  // Agregación por Atelier
   const atelierCounts = active.reduce((acc: any, s) => {
     const a = s.atelier || 'Por Asignar';
     acc[a] = (acc[a] || 0) + 1;
     return acc;
   }, {});
 
-  // Agregación Motivos de Retiro
   const retireCounts = retired.reduce((acc: any, s) => {
     const reason = s.estado_actual || 'Otro';
     acc[reason] = (acc[reason] || 0) + 1;
     return acc;
   }, {});
 
-  // Historial por Año (desde registros académicos)
   const { data: yearStats } = await supabase
     .from('student_academic_records')
     .select('school_years(name)');
@@ -71,13 +72,13 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     byModality: Object.entries(modalityCounts).map(([label, count]: [string, any]) => ({
       label,
       count,
-      percentage: Math.round((count / active.length) * 100)
+      percentage: Math.round((count / (active.length || 1)) * 100)
     })),
     byGrade: Object.entries(gradeCounts)
       .map(([label, count]: [string, any]) => ({ label: `Grado ${label}`, count }))
       .sort((a, b) => b.count - a.count),
     byAtelier: Object.entries(atelierCounts).map(([label, count]: [string, any]) => ({ label, count })),
-    byLevel: [], // Implementar si es necesario
+    byLevel: [],
     withdrawalReasons: Object.entries(retireCounts).map(([label, count]: [string, any]) => ({ label, count })),
     enrollmentByYear: Object.entries(yearCounts)
       .map(([yearName, count]: [string, any]) => ({ yearName, count }))

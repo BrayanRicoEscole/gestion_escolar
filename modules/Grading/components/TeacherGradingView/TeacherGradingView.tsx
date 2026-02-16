@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useRef } from 'react';
-import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info, FileDown, FileUp, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info, FileDown, FileUp, ShieldCheck, GraduationCap, ShieldAlert } from 'lucide-react';
 import { useGrading } from '../../../../hooks/useGrading';
 import { useStudentResults } from './thGradingHooks/useStudentResults';
 import { GradingHeader } from './components/GradingHeader';
@@ -8,11 +7,12 @@ import { GradingFilters } from './components/GradingFilters';
 import { GradesTable } from './components/GradesTable/GradesTable';
 import { generateGradesTemplateCsv, parseGradesCsv } from '../../utils/GradesCsvService';
 
-const TeacherGradingView: React.FC = () => {
+const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'grower' }) => {
   const grading = useGrading({ realtime: true });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isAdmin = true; 
+  // Detección real de permisos
+  const isAdmin = userRole === 'support';
 
   const {
     isLoading = true,
@@ -56,6 +56,12 @@ const TeacherGradingView: React.FC = () => {
     end.setHours(23, 59, 59, 999);
     return now >= start && now <= end;
   }, [currentStation]);
+
+  // Si no es admin y está fuera de fecha, no se puede editar
+  const isEditable = useMemo(() => {
+    if (isAdmin) return true; // Admins siempre pueden editar
+    return isWithinDateRange;
+  }, [isAdmin, isWithinDateRange]);
 
   const toggleMoment = (momentId: string) => {
     setCollapsedMoments(prev => {
@@ -134,32 +140,36 @@ const TeacherGradingView: React.FC = () => {
         <GradingHeader
           subjectName={currentSubjectName}
           isSaving={isSaving}
-          isEditable={isWithinDateRange}
+          isEditable={isEditable}
         />
         
         <div className="flex flex-col items-end gap-3">
-           {isAdmin && (
-             <div className="flex gap-2 bg-slate-900 p-1.5 rounded-2xl shadow-xl border border-white/10">
-                <button 
-                  onClick={handleDownloadCsv}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                >
-                  <FileDown size={14} className="text-primary" /> Plantilla
-                </button>
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-primary-hover shadow-lg"
-                >
-                  <FileUp size={14} /> Importar CSV
-                </button>
-                <input type="file" ref={fileInputRef} onChange={handleImportCsv} accept=".csv" className="hidden" />
-             </div>
-           )}
+           <div className="flex gap-2 bg-slate-900 p-1.5 rounded-2xl shadow-xl border border-white/10">
+              <button 
+                // Fix: rename handleDownloadTemplate to handleDownloadCsv as it is the correct function defined in this component
+                onClick={handleDownloadCsv}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                <FileDown size={14} className="text-primary" /> Plantilla
+              </button>
+              {isAdmin && (
+                <>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-primary-hover shadow-lg"
+                  >
+                    <FileUp size={14} /> Importar CSV
+                  </button>
+                  <input type="file" ref={fileInputRef} onChange={handleImportCsv} accept=".csv" className="hidden" />
+                </>
+              )}
+           </div>
 
            <div className="flex flex-col items-end gap-2 bg-white px-6 py-4 rounded-[2rem] border border-slate-100 shadow-sm">
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isWithinDateRange ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}>
-                  {isWithinDateRange ? <Unlock size={12} /> : <Lock size={12} />}
-                  {isWithinDateRange ? 'Registro Habilitado' : 'Registro Bloqueado'}
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isEditable ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}>
+                  {isEditable ? <Unlock size={12} /> : <Lock size={12} />}
+                  {isEditable ? 'Registro Habilitado' : 'Registro Bloqueado'}
+                  {isAdmin && !isWithinDateRange && ' (Bypass Admin)'}
               </div>
               <div className="flex items-center gap-3 text-slate-400">
                   <Calendar size={14} className="text-primary" />
@@ -207,7 +217,7 @@ const TeacherGradingView: React.FC = () => {
           onLevelingChange={handleLevelingChange}
           collapsedMoments={collapsedMoments}
           onToggleMoment={toggleMoment}
-          isEditable={isWithinDateRange}
+          isEditable={isEditable}
           onToggleSkill={toggleSkillSelection}
           getSkillSelectionsForStudent={getSkillSelectionsForStudent}
         />
@@ -221,6 +231,19 @@ const TeacherGradingView: React.FC = () => {
             No se encontraron estudiantes registrados para el año <strong>{schoolYear.name}</strong>. 
             Asegúrate de haber realizado el proceso de <strong>Matrícula Global</strong> en el módulo de Estudiantes Activos.
           </p>
+        </div>
+      )}
+
+      {isAdmin && !isWithinDateRange && (
+        <div className="mt-8 p-6 bg-amber-50 border border-amber-200 rounded-3xl flex items-start gap-4">
+           <ShieldAlert className="text-amber-600 shrink-0" size={24} />
+           <div>
+              <h4 className="text-sm font-black text-amber-800 uppercase tracking-tight">Acceso Administrativo Detectado</h4>
+              <p className="text-xs text-amber-700 font-medium leading-relaxed mt-1">
+                La fecha de esta estación ha expirado, pero tu rol de **Support** te permite realizar modificaciones fuera de rango. 
+                Utiliza esta facultad con precaución para no alterar reportes ya emitidos.
+              </p>
+           </div>
         </div>
       )}
 
