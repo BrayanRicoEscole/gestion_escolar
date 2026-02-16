@@ -25,7 +25,8 @@ export const UserManagementModule: React.FC = () => {
       setProfiles(data);
     } catch (e: any) {
       console.error(e);
-      if (e.message?.includes('profiles') || e.code === '42P17') {
+      // El error 42P17 es el código de PostgreSQL para recursión infinita
+      if (e.code === '42P17' || e.message?.includes('recursion') || e.message?.includes('profiles')) {
         setError('DATABASE_ERROR');
       } else {
         setError('Ocurrió un error al cargar los usuarios.');
@@ -61,31 +62,31 @@ CREATE TABLE IF NOT EXISTS api.profiles (
   last_login timestamp with time zone DEFAULT now()
 );
 
--- 2. HABILITAR RLS
+-- 2. RESET TOTAL DE POLÍTICAS
 ALTER TABLE api.profiles ENABLE ROW LEVEL SECURITY;
-
--- 3. LIMPIAR POLÍTICAS ANTIGUAS
 DROP POLICY IF EXISTS "Public profiles are visible to everyone" ON api.profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON api.profiles;
 DROP POLICY IF EXISTS "Users can insert their own profile" ON api.profiles;
 DROP POLICY IF EXISTS "Admins have full access" ON api.profiles;
 
--- 4. POLÍTICA DE LECTURA (Evita recursión permitiendo lectura básica a autenticados)
+-- 3. POLÍTICA DE LECTURA (CLAVE: Sin filtros complejos para evitar recursión)
+-- Permitimos que cualquier usuario autenticado lea la tabla. 
+-- Esto es seguro en un sistema interno y rompe el ciclo infinito.
 CREATE POLICY "Public profiles are visible to everyone" 
 ON api.profiles FOR SELECT 
 USING (auth.role() = 'authenticated');
 
--- 5. POLÍTICA DE INSERCIÓN (Permite que nuevos usuarios se registren)
+-- 4. POLÍTICA DE INSERCIÓN (Permite registro inicial)
 CREATE POLICY "Users can insert their own profile" 
 ON api.profiles FOR INSERT 
 WITH CHECK (auth.uid() = id);
 
--- 6. POLÍTICA DE ACTUALIZACIÓN PROPIA
+-- 5. POLÍTICA DE ACTUALIZACIÓN PROPIA
 CREATE POLICY "Users can update their own profile" 
 ON api.profiles FOR UPDATE 
 USING (auth.uid() = id);
 
--- 7. POLÍTICA DE ADMINISTRADOR (Evita recursión usando SELECT directo)
+-- 6. POLÍTICA DE ADMIN (Usa un EXISTS que ahora funciona porque SELECT es abierto)
 CREATE POLICY "Admins have full access" 
 ON api.profiles FOR ALL 
 USING (
@@ -112,7 +113,7 @@ USING (
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px] gap-4">
         <Loader2 className="w-12 h-12 text-primary animate-spin" />
-        <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest animate-pulse">Sincronizando Directorio...</p>
+        <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest animate-pulse">Analizando permisos de seguridad...</p>
       </div>
     );
   }
@@ -121,15 +122,32 @@ USING (
     return (
       <div className="p-8 max-w-4xl mx-auto">
         <Card className="border-rose-200 bg-rose-50/30 p-12 text-center">
-          <ShieldAlert size={48} className="text-rose-600 mx-auto mb-6" />
-          <h2 className="text-2xl font-black text-slate-900 mb-4">Error de Seguridad (RLS)</h2>
-          <p className="text-slate-600 mb-8 max-w-md mx-auto">
-            Las políticas de seguridad están bloqueando el acceso o causando recursión. Ejecuta el script corregido para restablecer el acceso.
+          <ShieldAlert size={64} className="text-rose-600 mx-auto mb-6" />
+          <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tighter">Error de Recursión Detectado</h2>
+          <p className="text-slate-600 mb-8 max-w-md mx-auto font-medium">
+            Tus políticas de seguridad en Supabase están chocando entre sí (Infinite Recursion). 
+            Esto bloquea cualquier visualización de datos. Ejecuta este script corregido en el editor SQL.
           </p>
-          <div className="bg-slate-900 text-left rounded-3xl p-6 relative overflow-hidden">
-             <pre className="text-emerald-400 font-mono text-[11px] overflow-x-auto">{sqlSetup}</pre>
+          <div className="bg-slate-900 text-left rounded-3xl p-8 relative overflow-hidden group">
+             <div className="flex justify-between items-center mb-4">
+                <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">SQL FIX SCRIPT</span>
+                <button 
+                  onClick={() => { navigator.clipboard.writeText(sqlSetup); alert("Copiado al portapapeles"); }}
+                  className="flex items-center gap-2 text-emerald-400 font-black text-[10px] uppercase hover:text-emerald-300 transition-all"
+                >
+                   <Copy size={14} /> Copiar Código
+                </button>
+             </div>
+             <pre className="text-emerald-400 font-mono text-[11px] overflow-x-auto leading-relaxed max-h-[300px] custom-scrollbar">
+                {sqlSetup}
+             </pre>
           </div>
-          <button onClick={fetchProfiles} className="mt-8 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs">Reintentar</button>
+          <button 
+            onClick={fetchProfiles} 
+            className="mt-8 px-10 py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest hover:bg-slate-800 transition-all shadow-2xl"
+          >
+            Reintentar Conexión
+          </button>
         </Card>
       </div>
     );
@@ -137,9 +155,9 @@ USING (
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto animate-in fade-in duration-500 pb-20">
-      <header className="mb-12 flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6">
+      <header className="mb-12 flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 text-black">
         <div>
-           <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4 text-black">
+           <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4">
               <div className="w-14 h-14 bg-primary text-white rounded-2xl flex items-center justify-center shadow-lg">
                  <UserCog size={32} />
               </div>
@@ -149,7 +167,7 @@ USING (
         </div>
 
         <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
              {(['all', 'support', 'grower'] as const).map(r => (
                <button 
                  key={r}
@@ -168,7 +186,7 @@ USING (
               placeholder="Buscar por nombre o email..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-primary/20 outline-none"
+              className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-primary/20 outline-none text-black"
             />
           </div>
 
@@ -182,7 +200,7 @@ USING (
         <Card className="mb-10 border-amber-200 bg-amber-50/30 p-8 animate-in slide-in-from-top-4">
            <div className="flex items-start gap-4">
               <AlertCircle className="text-amber-500 shrink-0 mt-1" size={24} />
-              <div>
+              <div className="flex-1">
                  <h4 className="text-lg font-black text-slate-800 mb-2">Corrección de Políticas RLS</h4>
                  <div className="bg-slate-900 rounded-2xl p-6 relative">
                     <pre className="text-[11px] text-emerald-400 font-mono overflow-x-auto">{sqlSetup}</pre>
@@ -196,7 +214,7 @@ USING (
       <div className="grid grid-cols-1 gap-4">
         {filtered.map(profile => (
           <Card key={profile.id} className="group hover:border-primary/20 transition-all overflow-hidden" padding="none">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 p-4 lg:p-6">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 p-4 lg:p-6 text-black">
               <div className="flex items-center gap-6 flex-1">
                 <div className="w-16 h-16 bg-slate-100 rounded-[1.5rem] flex items-center justify-center border border-slate-100 overflow-hidden shadow-inner">
                   {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" /> : <span className="font-black text-slate-300 text-2xl">{(profile.full_name || 'U').charAt(0)}</span>}

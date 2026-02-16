@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info, FileDown, FileUp, ShieldCheck, GraduationCap, ShieldAlert } from 'lucide-react';
 import { useGrading } from '../../../../hooks/useGrading';
 import { useStudentResults } from './thGradingHooks/useStudentResults';
@@ -8,10 +8,11 @@ import { GradesTable } from './components/GradesTable/GradesTable';
 import { generateGradesTemplateCsv, parseGradesCsv } from '../../utils/GradesCsvService';
 
 const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'grower' }) => {
+  console.log(`[DEBUG:GradingView] Renderizado con Rol: ${userRole}`);
+  
   const grading = useGrading({ realtime: true });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Detección real de permisos
   const isAdmin = userRole === 'support';
 
   const {
@@ -54,14 +55,24 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     const start = new Date(currentStation.startDate);
     const end = new Date(currentStation.endDate);
     end.setHours(23, 59, 59, 999);
-    return now >= start && now <= end;
+    const active = now >= start && now <= end;
+    console.log(`[DEBUG:GradingView] Estación: ${currentStation.name}. Vigente: ${active}`);
+    return active;
   }, [currentStation]);
 
-  // Si no es admin y está fuera de fecha, no se puede editar
   const isEditable = useMemo(() => {
-    if (isAdmin) return true; // Admins siempre pueden editar
+    if (isAdmin) {
+      console.log("[DEBUG:GradingView] 🔓 Permiso Administrativo Concedido (Bypass Fechas)");
+      return true;
+    }
     return isWithinDateRange;
   }, [isAdmin, isWithinDateRange]);
+
+  useEffect(() => {
+    if (schoolYear) {
+      console.log(`[DEBUG:GradingView] Año Cargado: ${schoolYear.name}. Estaciones: ${schoolYear.stations.length}`);
+    }
+  }, [schoolYear]);
 
   const toggleMoment = (momentId: string) => {
     setCollapsedMoments(prev => {
@@ -146,7 +157,6 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
         <div className="flex flex-col items-end gap-3">
            <div className="flex gap-2 bg-slate-900 p-1.5 rounded-2xl shadow-xl border border-white/10">
               <button 
-                // Fix: rename handleDownloadTemplate to handleDownloadCsv as it is the correct function defined in this component
                 onClick={handleDownloadCsv}
                 className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
               >
@@ -258,7 +268,7 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
                 Sistema de Autoguardado e Inteligencia Realtime
             </h4>
             <p className="text-sm text-white/60 font-medium leading-relaxed max-w-4xl">
-                Toda calificación ingresada se sincroniza **instantáneamente** con el servidor. 
+                toda calificación ingresada se sincroniza **instantáneamente** con el servidor. 
                 Si otro Grower edita la misma planilla, verás los cambios reflejados sin necesidad de recargar. 
             </p>
           </div>

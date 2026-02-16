@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { 
   Users, UserCheck, UserX, CreditCard, Home, MapPin, 
   TrendingUp, BarChart3, PieChart, School, Loader2, ArrowUpRight, 
-  CalendarDays, Info, AlertTriangle
+  CalendarDays, Info, AlertTriangle, ShieldAlert
 } from 'lucide-react';
 import { getDashboardStats, DashboardStats } from '../../services/api';
 import { Card } from '../../components/ui/Card';
@@ -11,16 +11,22 @@ export const DashboardModule: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRlsError, setIsRlsError] = useState(false);
 
   useEffect(() => {
     getDashboardStats()
       .then(data => {
         setStats(data);
         setError(null);
+        setIsRlsError(false);
       })
       .catch(err => {
         console.error("[Dashboard] Error cargando estadísticas:", err);
-        setError("No se pudieron cargar los datos. Verifica que las tablas existan y tengas permisos.");
+        if (err.code === '42P17' || err.message?.includes('recursion') || err.message?.includes('permission')) {
+          setIsRlsError(true);
+        } else {
+          setError("No se pudieron cargar los datos estratégicos.");
+        }
       })
       .finally(() => {
         setLoading(false);
@@ -29,9 +35,32 @@ export const DashboardModule: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[600px] gap-4">
+      <div className="flex flex-col items-center justify-center min-h-[600px] gap-4 text-black">
         <Loader2 className="w-12 h-12 text-primary animate-spin" />
-        <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Calculando indicadores estratégicos...</p>
+        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Compilando indicadores de rendimiento...</p>
+      </div>
+    );
+  }
+
+  if (isRlsError) {
+    return (
+      <div className="p-12 max-w-3xl mx-auto mt-20">
+        <Card className="border-rose-200 bg-rose-50/30 p-12 text-center text-black">
+           <ShieldAlert size={64} className="text-rose-600 mx-auto mb-6" />
+           <h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tighter">Acceso de Datos Bloqueado</h3>
+           <p className="text-slate-600 mb-8 font-medium">
+             Tus políticas de seguridad (RLS) están impidiendo que el Dashboard consulte la tabla de estudiantes. 
+             Esto suele deberse a la <strong>recursión infinita</strong> en la tabla de perfiles.
+           </p>
+           <div className="p-6 bg-white rounded-3xl border border-rose-100 text-left">
+              <p className="text-[10px] font-black uppercase text-rose-600 mb-3">Cómo solucionarlo:</p>
+              <ol className="text-xs text-slate-500 space-y-2 list-decimal ml-4 font-bold">
+                 <li>Ve al módulo de <strong>Usuarios</strong>.</li>
+                 <li>Copia el script SQL de "Corrección de RLS" que aparece en el aviso de error.</li>
+                 <li>Pégalo y ejecútalo en el editor SQL de Supabase.</li>
+              </ol>
+           </div>
+        </Card>
       </div>
     );
   }
@@ -39,13 +68,13 @@ export const DashboardModule: React.FC = () => {
   if (error || !stats) {
     return (
       <div className="p-8 max-w-2xl mx-auto mt-20">
-        <Card className="border-amber-200 bg-amber-50/30 p-12 text-center">
+        <Card className="border-amber-200 bg-amber-50/30 p-12 text-center text-black">
            <AlertTriangle size={48} className="text-amber-500 mx-auto mb-6" />
-           <h3 className="text-xl font-black text-slate-900 mb-2">Panel de Control sin Datos</h3>
-           <p className="text-slate-600 mb-8 font-medium">No hay registros de estudiantes para procesar estadísticas o hay un problema de conexión con la base de datos.</p>
+           <h3 className="text-xl font-black text-slate-900 mb-2">Panel sin Información</h3>
+           <p className="text-slate-600 mb-8 font-medium">No hay registros de estudiantes para procesar estadísticas o hay un problema de conexión.</p>
            <div className="p-4 bg-white rounded-2xl border border-amber-100 text-left">
               <p className="text-[10px] font-black uppercase text-amber-600 mb-1">Acción sugerida:</p>
-              <p className="text-xs text-slate-500">Ve al módulo de <strong>Estudiantes</strong> e importa datos desde un CSV o vincula seeds a un año escolar.</p>
+              <p className="text-xs text-slate-500">Importa la base de datos de estudiantes en el módulo <strong>Estudiantes</strong>.</p>
            </div>
         </Card>
       </div>
@@ -61,22 +90,22 @@ export const DashboardModule: React.FC = () => {
     : 0;
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
+    <div className="p-8 max-w-[1600px] mx-auto space-y-10 animate-in fade-in duration-700 pb-20 text-black">
       
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
         <div>
-           <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4 text-black">
+           <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4">
               <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg">
                  <BarChart3 size={32} />
               </div>
               Panel de Control Institucional
            </h1>
-           <p className="text-slate-500 font-medium mt-2">Visión global y analítica en tiempo real de la comunidad Renfort</p>
+           <p className="text-slate-500 font-medium mt-2">Visión analítica en tiempo real de la comunidad Renfort</p>
         </div>
-        <div className="flex items-center gap-3 bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-3 bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm font-black text-xs uppercase tracking-widest text-slate-500">
            <CalendarDays size={18} className="text-primary" />
-           <span className="text-sm font-black text-slate-700">Ciclo Académico Actual</span>
+           Ciclo Académico Actual
         </div>
       </header>
 
@@ -123,7 +152,7 @@ export const DashboardModule: React.FC = () => {
 };
 
 const KPICard = ({ title, value, icon: Icon, color, sub }: any) => (
-  <Card className="relative overflow-hidden group hover:scale-[1.02] transition-all">
+  <Card className="relative overflow-hidden group hover:scale-[1.02] transition-all text-black">
     <div className={`absolute top-0 right-0 w-24 h-24 ${color} opacity-5 -mr-8 -mt-8 rounded-full`}></div>
     <div className="flex items-center gap-6 relative z-10">
        <div className={`w-14 h-14 ${color} rounded-2xl flex items-center justify-center text-white shadow-lg`}><Icon size={28} /></div>

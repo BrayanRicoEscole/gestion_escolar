@@ -3,18 +3,17 @@ import { UserProfile, UserRole } from 'types';
 
 /**
  * Sincroniza el perfil del usuario de Auth con la tabla de la base de datos.
+ * Utiliza un patrón SELECT -> INSERT/UPDATE separado para evitar errores de RLS.
  */
 export const syncUserProfile = async (user: any): Promise<UserProfile | null> => {
   if (!user) {
-    console.warn("[DEBUG:Profiles] ❌ No hay usuario para sincronizar.");
+    console.warn("[DEBUG:Profiles] ❌ syncUserProfile: Usuario nulo. Cancelando sincronización.");
     return null;
   }
 
-  console.group("[DEBUG:Profiles] Sincronización de Perfil");
-  console.log("ID de Auth:", user.id);
-  console.log("Email:", user.email);
-
-  const volatileProfile: UserProfile = {
+  console.group(`[DEBUG:Profiles] Sincronización Identidad (${user.email})`);
+  
+  const fallback: UserProfile = {
     id: user.id,
     email: user.email,
     full_name: user.user_metadata?.full_name || user.email,
@@ -24,50 +23,55 @@ export const syncUserProfile = async (user: any): Promise<UserProfile | null> =>
   };
 
   try {
-    // 1. Intentar actualizar y obtener
-    console.log("-> Ejecutando SELECT/UPDATE en 'profiles'...");
-    const { data, error } = await supabase
+    // 1. SELECT simple primero
+    console.log("-> Paso 1: Consultando existencia en DB...");
+    const { data: profile, error: selectError } = await supabase
       .from('profiles')
-      .update({ last_login: new Date().toISOString() })
+      .select('*')
       .eq('id', user.id)
-      .select()
       .maybeSingle();
 
-    if (error) {
-      console.error("-> ❌ Error de Supabase:", error.code, error.message);
-      console.log("-> Usando Perfil Volátil (Emergencia)");
+    if (selectError) {
+      console.error("-> ❌ Error en SELECT (Posible RLS Recursion):", selectError.code, selectError.message);
       console.groupEnd();
-      return volatileProfile;
+      return fallback; 
     }
 
-    if (data) {
-      console.log("-> ✅ Perfil encontrado en DB:", data);
+    if (profile) {
+      console.log("-> ✅ Perfil recuperado. Rol:", profile.role);
+      
+      // 2. Update de login en segundo plano (no bloqueante)
+      supabase.from('profiles')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', user.id)
+        .then(({ error }) => error && console.warn("-> ⚠️ No se pudo actualizar last_login:", error.message));
+
       console.groupEnd();
-      return data;
+      return profile;
     }
 
-    // 2. Si no existe, intentar crear
-    console.log("-> ℹ️ No existe registro. Intentando INSERT...");
-    const { data: created, error: createError } = await supabase
+    // 3. Crear perfil si no existe
+    console.log("-> ℹ️ Registro no encontrado. Creando perfil inicial...");
+    const { data: created, error: insertError } = await supabase
       .from('profiles')
-      .insert(volatileProfile)
+      .insert(fallback)
       .select()
       .single();
 
-    if (createError) {
-      console.error("-> ❌ Error al crear perfil (INSERT):", createError.code, createError.message);
-      console.log("-> Usando Perfil Volátil");
+    if (insertError) {
+      console.error("-> ❌ Error en INSERT (Permisos?):", insertError.code, insertError.message);
       console.groupEnd();
-      return volatileProfile;
+      return fallback;
     }
 
-    console.log("-> ✨ Perfil creado exitosamente:", created);
+    console.log("-> ✨ Perfil creado con éxito.");
     console.groupEnd();
     return created;
+
   } catch (err) {
     console.error("-> 🔥 Error crítico en syncUserProfile:", err);
     console.groupEnd();
-    return volatileProfile;
+    return fallback;
   }
 };
 
@@ -85,7 +89,6 @@ export const getAllUserProfiles = async (): Promise<UserProfile[]> => {
     console.error("[DEBUG:Profiles] ❌ Error al listar usuarios:", error);
     throw error;
   }
-  console.log(`[DEBUG:Profiles] ✅ ${data?.length || 0} usuarios recuperados.`);
   return data || [];
 };
 
@@ -93,7 +96,6 @@ export const getAllUserProfiles = async (): Promise<UserProfile[]> => {
  * Cambia el rol institucional de un usuario
  */
 export const updateUserRole = async (userId: string, role: UserRole): Promise<void> => {
-  console.log(`[DEBUG:Profiles] 🛠️ Intentando cambiar rol: ${userId} -> ${role}`);
   const { error } = await supabase
     .from('profiles')
     .update({ role })
@@ -103,5 +105,4 @@ export const updateUserRole = async (userId: string, role: UserRole): Promise<vo
     console.error("[DEBUG:Profiles] ❌ Error al actualizar rol:", error);
     throw error;
   }
-  console.log("[DEBUG:Profiles] ✅ Rol actualizado en DB.");
 };

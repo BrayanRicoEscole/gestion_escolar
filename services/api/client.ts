@@ -1,8 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
-const SUPABASE_URL = 'https://gzdiljudmdezdkntnhml.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6ZGlsanVkbWRlemRrbnRuaG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1MzQ5OTEsImV4cCI6MjA4NTExMDk5MX0.Ui20tkVIXRslewslnM7vzDKkftdpxLnFBZn3KzoOue0';
+import * as localConfig from './supabase-config';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+/**
+ * Lógica de obtención de variables:
+ * 1. Intenta obtener desde supabase-config.ts
+ * 2. Si no están presentes, intenta obtener desde process.env (vía .env)
+ */
+const getVar = (key: 'SUPABASE_URL' | 'SUPABASE_KEY'): string => {
+  // Intentar desde el archivo de configuración local
+  const fromConfig = localConfig[key];
+  if (fromConfig && fromConfig.trim() !== '') {
+    return fromConfig;
+  }
+
+  // Fallback a variables de entorno (.env)
+  const fromEnv = typeof process !== 'undefined' ? process.env[key] : undefined;
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  return '';
+};
+
+const URL = getVar('SUPABASE_URL');
+const KEY = getVar('SUPABASE_KEY');
+
+if (!URL || !KEY) {
+  console.warn("[Supabase] ⚠️ No se encontraron las credenciales de conexión. Verifica services/api/supabase-config.ts o tu archivo .env");
+}
+
+export const supabase = createClient(URL, KEY, {
   db: {
     schema: 'api'
   }
