@@ -34,3 +34,4 @@ export const supabase = createClient(URL, KEY, {
     schema: 'api'
   }
 });
+
