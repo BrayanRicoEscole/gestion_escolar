@@ -1,4 +1,3 @@
-
 import { Station, Student, GradeEntry, SkillSelection } from '../../../types';
 
 /**
@@ -11,11 +10,9 @@ export const generateGradesTemplateCsv = (
   getGradeValue: (sId: string, gId: string, subId: string) => string,
   getSkillSelections: (sId: string) => string[]
 ) => {
-  // 1. Definir encabezados fijos
   const headers = ['Documento', 'Estudiante'];
   const slotMapping: { header: string; id: string }[] = [];
 
-  // 2. Añadir encabezados dinámicos de notas
   station.moments.forEach(m => {
     m.sections.forEach(sec => {
       sec.gradeSlots.forEach(slot => {
@@ -26,21 +23,15 @@ export const generateGradesTemplateCsv = (
     });
   });
 
-  headers.push('Habilidades_IDs'); // IDs separados por ;
+  headers.push('Habilidades_IDs');
 
-  // 3. Generar filas de estudiantes
   const rows = students.map(student => {
     const row = [student.document, student.full_name];
-    
-    // Valores de notas
     slotMapping.forEach(mapping => {
       row.push(getGradeValue(student.id!, mapping.id, subjectId) || '');
     });
-
-    // IDs de habilidades
     const skills = getSkillSelections(student.id!);
     row.push(skills.join(';'));
-
     return row.join(',');
   });
 
@@ -48,21 +39,17 @@ export const generateGradesTemplateCsv = (
 };
 
 /**
- * Parsea el CSV y devuelve un objeto estructurado para guardado masivo
+ * Parsea el CSV devolviendo una estructura plana para validación profunda en el API
  */
 export const parseGradesCsv = (
   text: string,
-  station: Station,
-  students: Student[]
+  station: Station
 ) => {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return null;
 
   const headers = lines[0].split(',').map(h => h.trim());
   const dataLines = lines.slice(1);
-
-  const gradeEntries: GradeEntry[] = [];
-  const skillSelections: SkillSelection[] = [];
 
   // Mapear qué columna corresponde a qué Slot ID
   const colToSlotId: Record<number, string> = {};
@@ -79,39 +66,25 @@ export const parseGradesCsv = (
 
   const skillsColIdx = headers.indexOf('Habilidades_IDs');
 
-  dataLines.forEach(line => {
+  const rows = dataLines.map(line => {
     const cols = line.split(',').map(c => c.trim());
-    const doc = cols[0];
-    const student = students.find(s => s.document === doc);
+    const document = cols[0];
+    const fullName = cols[1];
 
-    if (!student || !student.id) return;
-
-    // Procesar Notas
+    const grades: { slotId: string; value: number }[] = [];
     Object.entries(colToSlotId).forEach(([colIdx, slotId]) => {
       const val = cols[Number(colIdx)];
       if (val !== undefined && val !== '') {
-        gradeEntries.push({
-          studentId: student.id!,
-          slotId: slotId,
-          subjectId: '', // Se llenará en el hook
-          value: parseFloat(val) || 0
-        });
+        grades.push({ slotId, value: parseFloat(val) || 0 });
       }
     });
 
-    // Procesar Habilidades
-    if (skillsColIdx !== -1 && cols[skillsColIdx]) {
-      const ids = cols[skillsColIdx].split(';').filter(id => id.trim());
-      ids.forEach(skillId => {
-        skillSelections.push({
-          studentId: student.id!,
-          skillId: skillId.trim(),
-          subjectId: '', // Se llenará en el hook
-          stationId: station.id
-        });
-      });
-    }
+    const skillIds = skillsColIdx !== -1 && cols[skillsColIdx] 
+      ? cols[skillsColIdx].split(';').filter(id => id.trim())
+      : [];
+
+    return { document, fullName, grades, skillIds };
   });
 
-  return { gradeEntries, skillSelections };
+  return rows;
 };

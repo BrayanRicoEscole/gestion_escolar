@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info, FileDown, FileUp, ShieldCheck, GraduationCap, ShieldAlert } from 'lucide-react';
+import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info, FileDown, FileUp, ShieldCheck, GraduationCap, ShieldAlert, X, CheckCircle2, AlertTriangle, UserPlus } from 'lucide-react';
 import { useGrading } from '../../../../hooks/useGrading';
 import { useStudentResults } from './thGradingHooks/useStudentResults';
 import { GradingHeader } from './components/GradingHeader';
@@ -8,10 +8,9 @@ import { GradesTable } from './components/GradesTable/GradesTable';
 import { generateGradesTemplateCsv, parseGradesCsv } from '../../utils/GradesCsvService';
 
 const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'grower' }) => {
-  console.log(`[DEBUG:GradingView] Renderizado con Rol: ${userRole}`);
-  
   const grading = useGrading({ realtime: true });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<any>(null);
 
   const isAdmin = userRole === 'support';
 
@@ -55,24 +54,13 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     const start = new Date(currentStation.startDate);
     const end = new Date(currentStation.endDate);
     end.setHours(23, 59, 59, 999);
-    const active = now >= start && now <= end;
-    console.log(`[DEBUG:GradingView] Estación: ${currentStation.name}. Vigente: ${active}`);
-    return active;
+    return now >= start && now <= end;
   }, [currentStation]);
 
   const isEditable = useMemo(() => {
-    if (isAdmin) {
-      console.log("[DEBUG:GradingView] 🔓 Permiso Administrativo Concedido (Bypass Fechas)");
-      return true;
-    }
+    if (isAdmin) return true;
     return isWithinDateRange;
   }, [isAdmin, isWithinDateRange]);
-
-  useEffect(() => {
-    if (schoolYear) {
-      console.log(`[DEBUG:GradingView] Año Cargado: ${schoolYear.name}. Estaciones: ${schoolYear.stations.length}`);
-    }
-  }, [schoolYear]);
 
   const toggleMoment = (momentId: string) => {
     setCollapsedMoments(prev => {
@@ -111,10 +99,10 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
-        const data = parseGradesCsv(text, currentStation, filteredStudents);
-        if (data) {
-          const success = await bulkImportGradesAndSkills(data);
-          if (success) alert("Importación completada con éxito.");
+        const rawData = parseGradesCsv(text, currentStation);
+        if (rawData) {
+          const result = await bulkImportGradesAndSkills(rawData);
+          setImportResult(result);
         }
       } catch (err) {
         alert("Error al procesar el archivo CSV.");
@@ -181,15 +169,77 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
                   {isEditable ? 'Registro Habilitado' : 'Registro Bloqueado'}
                   {isAdmin && !isWithinDateRange && ' (Bypass Admin)'}
               </div>
-              <div className="flex items-center gap-3 text-slate-400">
-                  <Calendar size={14} className="text-primary" />
-                  <span className="text-[11px] font-bold">
-                    Vigencia: <span className="text-slate-700">{currentStation.startDate}</span> al <span className="text-slate-700">{currentStation.endDate}</span>
-                  </span>
-              </div>
            </div>
         </div>
       </div>
+
+      {/* Modal de Resultado de Importación */}
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+           <div className="bg-white w-full max-w-xl rounded-[3rem] p-10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+              <div className="flex justify-between items-center mb-8">
+                 <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-blue-50 text-primary rounded-2xl flex items-center justify-center">
+                       <CheckCircle2 size={32} />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900">Resultado de Importación</h3>
+                 </div>
+                 <button onClick={() => setImportResult(null)} className="p-2 text-slate-300 hover:text-slate-600"><X size={24} /></button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mb-8">
+                 <div className="p-4 bg-green-50 rounded-2xl border border-green-100 text-center">
+                    <p className="text-[10px] font-black text-green-600 uppercase mb-1">Cargados</p>
+                    <p className="text-3xl font-black text-green-700">{importResult.successCount}</p>
+                 </div>
+                 <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-center">
+                    <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Auto-Matrícula</p>
+                    <p className="text-3xl font-black text-blue-700">{importResult.enrolledCount}</p>
+                 </div>
+                 <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 text-center">
+                    <p className="text-[10px] font-black text-rose-600 uppercase mb-1">Faltantes</p>
+                    <p className="text-3xl font-black text-rose-700">{importResult.missingDocuments.length}</p>
+                 </div>
+              </div>
+
+              {importResult.missingDocuments.length > 0 && (
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 rounded-3xl p-6 border border-slate-100">
+                   <div className="flex items-center gap-2 mb-4 text-rose-600">
+                      <AlertTriangle size={16} />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Documentos No Encontrados</p>
+                   </div>
+                   <div className="space-y-2">
+                      {importResult.missingDocuments.map((doc: string) => (
+                        <div key={doc} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-600">
+                           <X size={12} className="text-rose-400" /> {doc}
+                        </div>
+                      ))}
+                   </div>
+                   <p className="mt-4 text-[9px] text-slate-400 italic leading-relaxed">
+                     * Estos estudiantes no existen en la base de datos de Activos ni Retirados. 
+                     Regístralos primero en el módulo de Estudiantes para cargar sus notas.
+                   </p>
+                </div>
+              )}
+
+              {importResult.enrolledCount > 0 && (
+                <div className="mt-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3">
+                   <UserPlus size={18} className="text-amber-500" />
+                   <p className="text-[10px] font-bold text-amber-700 uppercase">
+                     Se vincularon {importResult.enrolledCount} estudiantes al periodo {schoolYear.name} automáticamente.
+                   </p>
+                </div>
+              )}
+
+              <button 
+                onClick={() => setImportResult(null)} 
+                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs mt-8 shadow-xl hover:bg-slate-800 transition-all"
+              >
+                Entendido
+              </button>
+           </div>
+        </div>
+      )}
 
       <GradingFilters
         allYears={allYears}
@@ -239,7 +289,7 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
           <h3 className="text-xl font-black text-slate-800 tracking-tight">Sin estudiantes vinculados</h3>
           <p className="text-slate-400 text-sm max-w-md mt-2 font-medium">
             No se encontraron estudiantes registrados para el año <strong>{schoolYear.name}</strong>. 
-            Asegúrate de haber realizado el proceso de <strong>Matrícula Global</strong> en el módulo de Estudiantes Activos.
+            Asegúrate de haber realizado el proceso de <strong>Matrícula Global</strong> en el módulo de Estudiantes Activos o usa la importación de CSV.
           </p>
         </div>
       )}

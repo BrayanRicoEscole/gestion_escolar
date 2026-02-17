@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   SchoolYear,
@@ -16,7 +15,8 @@ import {
   saveLevelingGrades,
   saveGrades,
   saveSkillSelections,
-  getSchoolYearsList
+  getSchoolYearsList,
+  processDeepGradesImport
 } from '../services/api'
 import { supabase } from '../services/api/client'
 
@@ -47,7 +47,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const gradesChannelRef = useRef<any>(null);
   const levelingChannelRef = useRef<any>(null);
 
-  // 1. Carga inicial de años y datos globales (grades, skills)
+  // 1. Carga inicial
   useEffect(() => {
     const fetchInitial = async () => {
       try {
@@ -73,7 +73,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
     fetchInitial();
   }, []);
 
-  // 2. Al cambiar el año seleccionado, cargar estructura Y estudiantes matriculados
+  // 2. Carga de estructura y estudiantes al cambiar año
   useEffect(() => {
     if (!selectedYearId) return;
     const fetchYearData = async () => {
@@ -110,22 +110,32 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
     currentStation?.subjects?.find(s => s.id === selectedSubjectId)
   , [currentStation, selectedSubjectId]);
 
-  // Bulk Import
-  const bulkImportGradesAndSkills = async (data: { gradeEntries: GradeEntry[], skillSelections: SkillSelection[] }) => {
-    if (!selectedSubjectId || !selectedStationId) return;
+  /**
+   * Ejecuta la importación profunda validando documentos
+   */
+  const bulkImportGradesAndSkills = async (rawRows: any[]) => {
+    if (!selectedSubjectId || !selectedStationId || !selectedYearId) return;
     setIsSaving(true);
     try {
-      const gradesToSave = data.gradeEntries.map(g => ({ ...g, subjectId: selectedSubjectId }));
-      await saveGrades(gradesToSave);
-      await saveSkillSelections(
-        data.skillSelections.map(s => ({ ...s, subjectId: selectedSubjectId })), 
-        selectedSubjectId, 
-        selectedStationId
+      const result = await processDeepGradesImport(
+        rawRows,
+        selectedYearId,
+        selectedStationId,
+        selectedSubjectId
       );
-      const [newGrades, newSkills] = await Promise.all([getGrades(), getSkillSelections()]);
+
+      // Refrescar datos locales tras cambios en DB
+      const [newGrades, newSkills, newStudents] = await Promise.all([
+        getGrades(), 
+        getSkillSelections(),
+        getEnrolledStudents(selectedYearId)
+      ]);
+      
       setGrades(newGrades);
       setSkillSelections(newSkills);
-      return true;
+      setStudents(newStudents);
+      
+      return result;
     } catch (err) {
       console.error("Error en importación masiva:", err);
       throw err;
