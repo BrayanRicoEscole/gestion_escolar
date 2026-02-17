@@ -8,15 +8,17 @@ import * as localConfig from './supabase-config';
  */
 const getVar = (key: 'SUPABASE_URL' | 'SUPABASE_KEY'): string => {
   // Intentar desde el archivo de configuración local
-  const fromConfig = localConfig[key];
-  if (fromConfig && fromConfig.trim() !== '') {
-    return fromConfig;
-  }
+ 
 
   // Fallback a variables de entorno (.env)
   const fromEnv = typeof process !== 'undefined' ? process.env[key] : undefined;
   if (fromEnv) {
     return fromEnv;
+  }
+
+  const fromConfig = localConfig[key];
+  if (fromConfig && fromConfig.trim() !== '') {
+    return fromConfig;
   }
 
   return '';
