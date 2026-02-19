@@ -153,6 +153,7 @@ const App: React.FC = () => {
   const modules = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, visible: isSupport },
     { id: 'active_students', name: 'Estudiantes', icon: Users, visible: isSupport },
+    { id: 'retired_students', name: 'Retirados', icon: UserX, visible: isSupport },
     { id: 'grading', name: 'Calificaciones', icon: Settings, visible: true },
     { id: 'grading_setup', name: 'Configuración', icon: Sliders, visible: isSupport },
     { id: 'comments', name: 'Comentarios', icon: MessageSquareText, visible: true },
@@ -165,6 +166,7 @@ const App: React.FC = () => {
     switch (activeModule) {
       case 'dashboard': return <DashboardModule />;
       case 'active_students': return <ActiveStudentsModule />;
+      case 'retired_students': return <RetiredStudentsModule />;
       case 'grading': return <TeacherGradingView userRole={profile.role} />;
       case 'grading_setup': return <GradingModule />;
       case 'comments': return <TeacherCommentsView />;
