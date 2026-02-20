@@ -38,5 +38,10 @@ if (!URL || !KEY) {
 export const supabase = createClient(URL, KEY, {
   db: {
     schema: 'api'
-  }
+  },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
 });
