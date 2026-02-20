@@ -186,7 +186,7 @@ export const useGradingAdmin = () => {
   useEffect(() => {
     setSelectedSubjectIdx(0);
     setSelectedMomentIdx(0);
-  }, [selectedStationIdx, schoolYear]);
+  }, [selectedStationIdx]);
 
   useEffect(() => {
     setSelectedSectionIdx(0);
