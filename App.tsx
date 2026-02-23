@@ -5,9 +5,8 @@ import {
   LogOut, Loader2, FlaskConical, ClipboardList, UserX, UserCog, ShieldAlert, Terminal,
   Sliders
 } from 'lucide-react';
-import { supabase } from './services/api/client';
-import { signInWithGoogle, signOut, syncUserProfile } from './services/api';
 import { UserProfile, UserRole } from './types';
+import { useAuth } from './context/AuthContext';
 
 // Módulos
 import GradingModule from './modules/Grading/GradingModule';
@@ -18,135 +17,48 @@ import { RetiredStudentsModule } from './modules/Students/RetiredStudentsModule'
 import { ReportsModule } from './modules/Reports/ReportsModule';
 import { DashboardModule } from './modules/Dashboard/DashboardModule';
 import { UserManagementModule } from './modules/Users/UserManagementModule';
+import { FullScreenLoader } from './components/FullScreenLoader'
+import { LoginScreen } from './components/LoginScreen'
 
 type Module = 'dashboard' | 'admissions' | 'active_students' | 'retired_students' | 'reports' | 'grading' | 'grading_setup' | 'comments' | 'users';
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const {
+    isAuthLoading,
+    isProfileLoading,
+    isAuthenticated,
+    profile,
+    signIn,
+    logout
+  } = useAuth();
   const [activeModule, setActiveModule] = useState<Module>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  useEffect(() => {
-    console.log("[DEBUG:App] 🚀 Inicializando Ciclo de Vida Auth...");
-
-    const savedBypass = sessionStorage.getItem('auth_bypass');
-    if (savedBypass) {
-      const bypassData = JSON.parse(savedBypass);
-      setSession(bypassData.session);
-      setProfile(bypassData.profile);
-      console.log("[DEBUG:App] ⚡ Modo BYPASS activo:", bypassData.profile.role);
-      setAuthLoading(false);
-      return;
-    }
-
-    // 1. Carga inicial de sesión
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log("[DEBUG:App] 🔑 getSession():", session ? "Sesión Recuperada" : "Sin sesión activa");
-      setSession(session);
-      
-      if (session?.user) {
-        try {
-          const up = await syncUserProfile(session.user);
-          setProfile(up);
-          if (up?.role === 'grower') setActiveModule('grading');
-        } catch (e) {
-          console.error("[DEBUG:App] ❌ Error en sincronización inicial:", e);
-        }
-      }
-      setAuthLoading(false);
-    });
-
-    // 2. Listener de Eventos (Refactorizado para evitar duplicidad)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`[DEBUG:App] 🔄 onAuthStateChange Evento: ${event}`);
-      
-      if (sessionStorage.getItem('auth_bypass')) {
-        console.log("[DEBUG:App] Evento ignorado (Bypass activo)");
-        return;
-      }
-
-      setSession(session);
-
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        if (session?.user) {
-          console.log("[DEBUG:App] -> Sincronizando perfil por evento de identidad...");
-          const up = await syncUserProfile(session.user);
-          setProfile(up);
-        }
-      }
-
-      if (event === 'SIGNED_OUT') {
-        console.log("[DEBUG:App] -> Limpiando estado por salida");
-        setProfile(null);
-        setActiveModule('dashboard');
-      }
-    });
-
-    return () => {
-      console.log("[DEBUG:App] Cleanup Auth Listener");
-      subscription.unsubscribe();
-    };
-  }, []);
 
   const handleLogout = async () => {
     try {
       console.log("[DEBUG:App] 🚪 Ejecutando SignOut...");
       sessionStorage.removeItem('auth_bypass');
-      await signOut();
+      await logout()
     } catch (error) {
       console.error("Error signing out:", error);
     }
   };
 
-  if (authLoading) {
+  if (isAuthLoading)  {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-6 text-black">
-        <div className="relative">
-           <Loader2 className="w-16 h-16 text-primary animate-spin" />
-           <div className="absolute inset-0 flex items-center justify-center">
-              <GraduationCap size={24} className="text-primary" />
-           </div>
-        </div>
-        <div className="text-center">
-           <p className="text-slate-900 font-black uppercase tracking-widest text-xs">EduGrade Cloud</p>
-           <p className="text-slate-400 font-bold text-[10px] mt-2 animate-pulse">Autenticando Identidad Digital...</p>
-        </div>
-      </div>
+      <FullScreenLoader/>
     );
   }
 
-  if (!session || !profile) {
-    console.log("[DEBUG:App] 🛑 Acceso Denegado: No hay sesión o perfil válido.");
+  if (!isAuthenticated)  {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-black">
-        <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl p-12 text-center border border-slate-100">
-          <div className="w-20 h-20 bg-primary rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-xl">
-            <GraduationCap className="text-white w-10 h-10" />
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-4">EduGrade Pro</h1>
-          <p className="text-slate-500 font-medium mb-10 leading-relaxed">
-            Inicia sesión para acceder al ecosistema de gestión escolar.
-          </p>
-          <button onClick={signInWithGoogle} className="w-full flex items-center justify-center gap-4 py-5 bg-white border-2 border-slate-100 rounded-3xl font-black text-slate-700 hover:bg-slate-50 transition-all shadow-sm mb-4">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" /> Entrar con Google
-          </button>
-          
-          <button 
-            onClick={() => {
-              const mockUser = { id: '00000', email: 'admin@renfort.edu.co' };
-              const mockProfile = { id: '00000', email: 'admin@renfort.edu.co', full_name: 'Dev Admin', role: 'support', last_login: '' };
-              sessionStorage.setItem('auth_bypass', JSON.stringify({ session: { user: mockUser }, profile: mockProfile }));
-              window.location.reload();
-            }} 
-            className="w-full py-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl font-black text-slate-400 hover:text-primary transition-all text-xs"
-          >
-            Acceso Desarrollador (Bypass)
-          </button>
-        </div>
-      </div>
+      <LoginScreen signIn={signIn}/>
     );
+  }
+
+  if (isProfileLoading || !profile) {
+    return <FullScreenLoader />;
   }
 
   const isSupport = profile.role === 'support';
@@ -154,7 +66,7 @@ const App: React.FC = () => {
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, visible: isSupport },
     { id: 'active_students', name: 'Estudiantes', icon: Users, visible: isSupport },
     { id: 'retired_students', name: 'Retirados', icon: UserX, visible: isSupport },
-    { id: 'grading', name: 'Calificaciones', icon: Settings, visible: true },
+    { id: 'grading', name: 'Calificaciones', icon: ClipboardList, visible: true },
     { id: 'grading_setup', name: 'Configuración', icon: Sliders, visible: isSupport },
     { id: 'comments', name: 'Comentarios', icon: MessageSquareText, visible: true },
     { id: 'reports', name: 'Reportes', icon: FileText, visible: isSupport },
