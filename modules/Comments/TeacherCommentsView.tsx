@@ -49,6 +49,7 @@ const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grow
     setSelectedAcademicLevel,
     selectedLevelGroup,
     setSelectedLevelGroup,
+    filteredSubjects = [],
     searchTerm,
     setSearchTerm,
   } = grading ?? {};
@@ -260,7 +261,11 @@ const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grow
         allYears={allYears}
         selectedYearId={selectedYearId}
         onYearChange={setSelectedYearId}
-        schoolYear={schoolYear} station={currentStation} selectedStationId={selectedStationId} selectedSubjectId={selectedSubjectId}
+        schoolYear={schoolYear} 
+        station={currentStation} 
+        filteredSubjects={filteredSubjects}
+        selectedStationId={selectedStationId} 
+        selectedSubjectId={selectedSubjectId}
         selectedCourse={selectedCourse} consolidationFilter="all" selectedAtelier={selectedAtelier} selectedAtelierType={selectedAtelierType}
         selectedAcademicLevel={selectedAcademicLevel} searchTerm={searchTerm} onStationChange={setSelectedStationId}
         onSubjectChange={setSelectedSubjectId} onCourseChange={setSelectedCourse} onConsolidationChange={() => {}}

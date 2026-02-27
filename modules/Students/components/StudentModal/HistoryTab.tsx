@@ -35,6 +35,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({ student }) => {
         schoolYearId={selectedRecord.school_year_id}
         schoolYearName={selectedRecord.school_year_name || 'N/A'}
         academicLevel={selectedRecord.academic_level}
+        atelier={selectedRecord.atelier}
         onBack={() => setSelectedRecord(null)}
       />
     );

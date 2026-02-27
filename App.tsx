@@ -95,7 +95,7 @@ const App: React.FC = () => {
         <div className="p-6 flex items-center justify-between">
           <div className={`flex items-center gap-3 ${!sidebarOpen && 'hidden'}`}>
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg"><GraduationCap className="text-white w-6 h-6" /></div>
-            <h1 className="font-bold text-xl text-slate-800 tracking-tight text-black">EduGrade</h1>
+            <h1 className="font-bold text-xl text-slate-800 tracking-tight text-black">Renfort</h1>
           </div>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400">{sidebarOpen ? <X size={20} /> : <Menu size={20} />}</button>
         </div>
@@ -132,7 +132,7 @@ const App: React.FC = () => {
           </div>
           {isSupport && (
             <div className="px-4 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100 flex items-center gap-2 animate-in slide-in-from-right-2">
-               <ShieldCheck size={14} /> Modo Auditor
+               <ShieldCheck size={14} /> Rol Support
             </div>
           )}
         </header>

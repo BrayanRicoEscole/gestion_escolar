@@ -12,6 +12,7 @@ interface GradingFiltersProps {
   onYearChange: (id: string) => void;
   schoolYear: SchoolYear;
   station: Station;
+  filteredSubjects?: any[];
   selectedStationId: string;
   selectedSubjectId: string;
   selectedCourse: string;
@@ -36,6 +37,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
   onYearChange,
   schoolYear,
   station,
+  filteredSubjects = [],
   selectedStationId,
   selectedSubjectId,
   selectedCourse,
@@ -54,8 +56,8 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
   onSearchChange
 }) => {
   const currentSubject = useMemo(() => 
-    station?.subjects?.find(s => s.id === selectedSubjectId)
-  , [station, selectedSubjectId]);
+    (filteredSubjects.length > 0 ? filteredSubjects : (station?.subjects || [])).find(s => s.id === selectedSubjectId)
+  , [filteredSubjects, station, selectedSubjectId]);
 
   const currentSubjectCourses = useMemo(() => currentSubject?.courses || [], [currentSubject]);
 
@@ -127,7 +129,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
               onChange={e => onSubjectChange(e.target.value)}
               className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              {station?.subjects?.map(subject => (
+              {(filteredSubjects.length > 0 ? filteredSubjects : (station?.subjects || [])).map(subject => (
                 <option key={subject.id} value={subject.id}>{subject.name}</option>
               ))}
             </select>

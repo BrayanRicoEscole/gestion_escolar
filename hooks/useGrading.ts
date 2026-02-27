@@ -103,6 +103,39 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
     schoolYear?.stations.find(s => s.id === selectedStationId)
   , [schoolYear, selectedStationId]);
 
+  const filteredSubjects = useMemo(() => {
+    if (!currentStation?.subjects) return [];
+    
+    const groupLevels = {
+      'Petiné': ['C'],
+      'Elementary': ['D', 'E', 'F', 'G'],
+      'Middle': ['H', 'I', 'J', 'K'],
+      'Highschool': ['L', 'M', 'N']
+    }[selectedLevelGroup];
+
+    return currentStation.subjects.filter(subject => {
+      const subCourses = subject.courses || [];
+      if (subCourses.length === 0) return true; // Materias globales
+
+      return subCourses.some(course => {
+        const levelChar = course.charAt(0).toUpperCase();
+        return groupLevels.includes(levelChar);
+      });
+    });
+  }, [currentStation, selectedLevelGroup]);
+
+  // Auto-seleccionar materia válida al cambiar de grupo de nivel
+  useEffect(() => {
+    if (filteredSubjects.length > 0) {
+      const isCurrentValid = filteredSubjects.some(s => s.id === selectedSubjectId);
+      if (!isCurrentValid) {
+        setSelectedSubjectId(filteredSubjects[0].id);
+      }
+    } else {
+      setSelectedSubjectId('');
+    }
+  }, [filteredSubjects, selectedSubjectId]);
+
   const currentSubject = useMemo(() => 
     currentStation?.subjects?.find(s => s.id === selectedSubjectId)
   , [currentStation, selectedSubjectId]);
@@ -367,6 +400,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
   return {
     isLoading, allYears, selectedYearId, setSelectedYearId, schoolYear, currentStation, currentSubject,
+    filteredSubjects,
     filteredStudents, paginatedStudents, totalStudents: filteredStudents.length, currentPage, setCurrentPage, pageSize, setPageSize,
     selectedStationId, setSelectedStationId, selectedSubjectId, setSelectedSubjectId,
     selectedCourse, setSelectedCourse, selectedAtelier, setSelectedAtelier, selectedAtelierType, setSelectedAtelierType,

@@ -71,7 +71,7 @@ const HabilidadesPage: React.FC<Props> = ({ comment}) => <div className="report-
 
         {/* APRENDIZAJE CONVIVENCIAL */}
         <div className="bg-[#0f4899] px-5 py-2">
-          <h4 className=" font-bold text-sm">
+          <h4 className=" font-bold text-sm text-white ">
             APRENDIZAJE CONVIVENCIAL
           </h4>
         </div>

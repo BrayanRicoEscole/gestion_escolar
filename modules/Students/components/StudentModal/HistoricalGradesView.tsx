@@ -9,10 +9,20 @@ interface Props {
   schoolYearId: string;
   schoolYearName: string;
   academicLevel?: string;
+  atelier?: string;
   onBack: () => void;
 }
 
-export const HistoricalGradesView: React.FC<Props> = ({ student, schoolYearId, schoolYearName, academicLevel, onBack }) => {
+const getAtelierCode = (name: string): string => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('alhambra')) return 'A';
+  if (n.includes('casa')) return 'C';
+  if (n.includes('mandalay')) return 'MS';
+  if (n.includes('mónaco') || n.includes('monaco')) return 'M';
+  return '';
+};
+
+export const HistoricalGradesView: React.FC<Props> = ({ student, schoolYearId, schoolYearName, academicLevel, atelier, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [yearStructure, setYearStructure] = useState<SchoolYear | null>(null);
   const [grades, setGrades] = useState<GradeEntry[]>([]);
@@ -25,14 +35,25 @@ export const HistoricalGradesView: React.FC<Props> = ({ student, schoolYearId, s
         // 1. Estructura del año
         const structure = await getSchoolYear(schoolYearId);
         
-        // Filtrar materias por nivel académico si se proporciona
-        if (academicLevel && structure) {
-          const levelChar = academicLevel.charAt(0).toUpperCase();
+        // Filtrar materias por nivel académico y atelier si se proporciona
+        if (academicLevel && atelier && structure) {
+          const studentLevel = academicLevel.trim().toUpperCase();
+          const atelierCode = getAtelierCode(atelier);
+          const targetCourse = `${studentLevel}-${atelierCode}`;
+
+          console.log(`[Filter] Buscando curso: ${targetCourse} en estructura de ${schoolYearName}`);
+
           structure.stations = structure.stations.map(station => ({
             ...station,
-            subjects: station.subjects.filter(sub => 
-              !sub.levels || sub.levels.length === 0 || sub.levels.some(l => l.charAt(0).toUpperCase() === levelChar)
-            )
+            subjects: station.subjects.filter(sub => {
+              const subCourses = (sub.courses || []).map(c => c.trim().toUpperCase());
+
+              // Si no tiene restricciones de cursos, se muestra (ej: materias globales)
+              if (subCourses.length === 0) return true;
+
+              // Verificar si el curso específico del estudiante (ej: I2-C) está permitido
+              return subCourses.includes(targetCourse);
+            })
           }));
         }
 
