@@ -336,3 +336,16 @@ export const syncStudentsFromSpreadsheet = async (
     console.groupEnd();
   }
 };
+
+/**
+ * Actualiza los datos de un estudiante
+ */
+export const updateStudent = async (studentId: string, data: Partial<Student>) => {
+  const { error } = await supabase
+    .from('students')
+    .update(data)
+    .eq('id', studentId);
+
+  if (error) throw error;
+  return true;
+};

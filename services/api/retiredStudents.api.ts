@@ -87,3 +87,71 @@ export const retireStudent = async (params: {
   if (recordError) throw recordError;
   return true;
 };
+
+/**
+ * Obtiene las notas de un estudiante para un año específico, 
+ * incluyendo la estructura de estaciones y materias.
+ */
+export const getStudentGradesByYear = async (studentId: string, schoolYearId: string) => {
+  console.log(`[API:History] Obteniendo notas para Estudiante: ${studentId}, Año: ${schoolYearId}`);
+  
+  // 1. Obtener Estaciones y Materias del año
+  const { data: stations, error: sError } = await supabase
+    .from('stations')
+    .select(`
+      id, name, weight,
+      subjects (id, name, area)
+    `)
+    .eq('school_year_id', schoolYearId)
+    .order('name');
+
+  if (sError) throw sError;
+
+  // 2. Obtener Notas del estudiante
+  const { data: grades, error: gError } = await supabase
+    .from('grades')
+    .select('subject_id, value, slot_id')
+    .eq('student_id', studentId);
+
+  if (gError) throw gError;
+
+  // 3. Obtener Notas de Nivelación
+  const { data: leveling, error: lError } = await supabase
+    .from('leveling_grades')
+    .select('subject_id, station_id, value')
+    .eq('student_id', studentId);
+
+  if (lError) throw lError;
+
+  // 4. Obtener Estructura de Slots para calcular promedios si es necesario
+  // Para simplificar esta vista histórica, mostraremos el promedio por materia/estación
+  // si el sistema ya tiene una función de cálculo, la usaríamos. 
+  // Pero aquí haremos un resumen por materia en cada estación.
+  
+  return {
+    stations: stations || [],
+    grades: grades || [],
+    leveling: leveling || []
+  };
+};
+
+/**
+ * Actualiza un registro académico histórico
+ */
+export const updateAcademicRecord = async (recordId: string, data: Partial<AcademicRecord>) => {
+  const { error } = await supabase
+    .from('student_academic_records')
+    .update({
+      grade: data.grade,
+      academic_level: data.academic_level,
+      atelier: data.atelier,
+      modality: data.modality,
+      status: data.status,
+      observations: data.observations,
+      created_at: data.created_at
+    })
+    .eq('id', recordId);
+
+  if (error) throw error;
+  return true;
+};
