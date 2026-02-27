@@ -26,15 +26,34 @@ export function calculateStudentGrades({
       const slots = section.gradeSlots ?? [];
       let sectionScore = 0;
       let sectionWeight = 0;
+      
+      const isSimpleAverage = section.grading_type === 'simple';
+      let filledSlotsCount = 0;
+      let simpleSum = 0;
 
       slots.forEach(slot => {
         const valStr = getGradeValue(studentId, slot.id, subjectId); 
-        const val = (valStr === '' || valStr === null) ? 0 : Number(valStr);
-        sectionScore += val * (slot.weight || 0);
-        sectionWeight += (slot.weight || 0);
+        const hasValue = valStr !== '' && valStr !== null;
+        const val = !hasValue ? 0 : Number(valStr);
+        
+        if (isSimpleAverage) {
+          if (hasValue) {
+            simpleSum += val;
+            filledSlotsCount++;
+          }
+        } else {
+          sectionScore += val * (slot.weight || 0);
+          sectionWeight += (slot.weight || 0);
+        }
       });
 
-      const sectionAvg = sectionWeight > 0 ? sectionScore / sectionWeight : 0;
+      let sectionAvg = 0;
+      if (isSimpleAverage) {
+        sectionAvg = filledSlotsCount > 0 ? simpleSum / filledSlotsCount : 0;
+      } else {
+        sectionAvg = sectionWeight > 0 ? sectionScore / sectionWeight : 0;
+      }
+
       momentScore += sectionAvg * (section.weight || 0);
       momentWeight += (section.weight || 0);
     });

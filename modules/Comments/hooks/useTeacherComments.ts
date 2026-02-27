@@ -1,6 +1,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
-import { getCommentTemplates, getStudentComments, saveStudentComment } from '../../../services/api';
+import { getCommentTemplates, getStudentComments, saveStudentComment, bulkImportComments } from '../../../services/api';
 import { StudentComment, CommentTemplate } from '../../../types';
 import { supabase } from '../../../services/api/client';
 
@@ -17,6 +17,23 @@ export function useTeacherComments({
   const [comments, setComments] = useState<StudentComment[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const bulkImport = async (rows: any[]) => {
+    if (!stationId) return;
+    setIsSaving(true);
+    try {
+      const result = await bulkImportComments(rows, stationId);
+      // Recargar comentarios
+      const cms = await getStudentComments(stationId);
+      setComments(cms);
+      return result;
+    } catch (e) {
+      console.error("Error en bulkImport:", e);
+      throw e;
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Carga inicial de datos
   useEffect(() => {
@@ -166,11 +183,13 @@ export function useTeacherComments({
 
   return {
     templates,
+    comments,
     selectedStudentId,
     setSelectedStudentId,
     currentComment,
     updateField,
     insertTemplate,
-    isSaving
+    isSaving,
+    bulkImport
   };
 }

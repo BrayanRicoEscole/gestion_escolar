@@ -19,7 +19,7 @@ export const Step3Subjects: React.FC<{
       area: Area.STEAM,
       lab: Lab.MEC,
       courses: [],
-      modalities: [],
+      ateliers: [],
       levels: []
     };
     

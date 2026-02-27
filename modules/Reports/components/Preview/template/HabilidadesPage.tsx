@@ -10,7 +10,7 @@ interface Props {
   
 }
 
-const HabilidadesPage: React.FC<Props> = ({ comment}) => <div className="report-page relative border border-border shadow-lg p-8 pb-14 px-0 py-0">
+const HabilidadesPage: React.FC<Props> = ({ comment}) => <div className="report-page relative border border-border shadow-lg p-8 px-0 py-0">
 
     <ReportHeader />
 

@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import saveAs from 'file-saver';
-import { ReportTemplate, Student, Station, SkillSelection, StudentComment } from '../../../../types';
+import { ReportTemplate, Student, Station, SkillSelection, StudentComment } from '../../../types';
 
 interface Params {
   templates: ReportTemplate[];

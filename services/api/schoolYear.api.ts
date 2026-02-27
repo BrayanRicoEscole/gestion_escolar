@@ -35,6 +35,14 @@ export const getSchoolYear = async (yearId?: string): Promise<SchoolYear> => {
     if (error) throw error;
     if (!yearData) throw new Error("No se encontró el año escolar.");
 
+    // Fetch directo de secciones para asegurar que obtenemos el grading_type
+    // incluso si la vista school_year_full no ha sido actualizada
+    const { data: sectionsDb } = await supabase
+      .from('sections')
+      .select('id, grading_type');
+
+    const gradingTypeMap = new Map(sectionsDb?.map(s => [s.id, s.grading_type]) || []);
+
     const { data: skillsData } =
       await supabase.from('subject_skills').select('*');
 
@@ -61,6 +69,7 @@ export const getSchoolYear = async (yearId?: string): Promise<SchoolYear> => {
                   id: s.id,
                   name: s.name,
                   weight: Number(s.weight || 0),
+                  grading_type: gradingTypeMap.get(s.id) || s.grading_type || 'weighted',
                   gradeSlots: (s.grade_slots || []).map((g: any) => ({
                     id: g.id,
                     name: g.name,
@@ -137,6 +146,7 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
   const rawMoments: any[] = [];
   const rawSections: any[] = [];
   const rawSlots: any[] = [];
+  const rawSkills: any[] = [];
 
   year.stations.forEach(st => {
     (st.subjects || []).forEach(sub => {
@@ -153,6 +163,21 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
       rawStationSubjects.push({
         station_id: st.id,
         subject_id: sub.id
+      });
+
+      (sub.skills || []).forEach(skill => {
+        const isTemp = !skill.id || skill.id.startsWith('temp-');
+        const skillObj: any = {
+          subject_id: sub.id,
+          level: skill.level,
+          description: skill.description
+        };
+        
+        if (!isTemp) {
+          skillObj.id = skill.id;
+        }
+        
+        rawSkills.push(skillObj);
       });
     });
 
@@ -171,6 +196,7 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
           moment_id: m.id,
           name: sec.name,
           weight: sec.weight,
+          grading_type: sec.grading_type || 'weighted',
           sort_order: sIdx
         });
 
@@ -219,5 +245,26 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
     const finalSlots = deDuplicateById(rawSlots);
     const { error: slotError } = await supabase.from('grade_slots').upsert(finalSlots);
     if (slotError) throw slotError;
+  }
+
+  if (rawSkills.length > 0) {
+    console.log(`[DB] Procesando ${rawSkills.length} habilidades...`);
+    
+    // De-duplicar habilidades con ID (las que se van a actualizar)
+    const toUpdate = deDuplicateById(rawSkills.filter(s => s.id));
+    // Las que no tienen ID se insertan directamente
+    const toInsert = rawSkills.filter(s => !s.id);
+
+    if (toUpdate.length > 0) {
+      console.log(`[DB] Actualizando ${toUpdate.length} habilidades existentes...`);
+      const { error: updateError } = await supabase.from('subject_skills').upsert(toUpdate);
+      if (updateError) throw updateError;
+    }
+
+    if (toInsert.length > 0) {
+      console.log(`[DB] Insertando ${toInsert.length} habilidades nuevas...`);
+      const { error: insertError } = await supabase.from('subject_skills').insert(toInsert);
+      if (insertError) throw insertError;
+    }
   }
 };

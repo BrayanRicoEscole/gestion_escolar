@@ -73,3 +73,66 @@ export const saveStudentComment= async (comment: StudentComment): Promise<void> 
     }
     console.log("[DB] Comentario guardado exitosamente.");
 };
+
+export const bulkImportComments = async (
+  rows: any[],
+  stationId: string
+): Promise<{ success: number; errors: number; missing: string[] }> => {
+  console.group("[API:BulkImportComments]");
+  try {
+    const documents = rows.map(r => r.document);
+    
+    // 1. Buscar estudiantes por documento
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, document')
+      .in('document', documents);
+
+    const studentMap = new Map(students?.map(s => [s.document, s.id]) || []);
+    const missing: string[] = [];
+    const payload: any[] = [];
+
+    rows.forEach(row => {
+      const studentId = studentMap.get(row.document);
+      if (!studentId) {
+        missing.push(row.document);
+        return;
+      }
+
+      payload.push({
+        student_id: studentId,
+        station_id: stationId,
+        convivencia_grade: row.convivenciaGrade ? Number(row.convivenciaGrade) : null,
+        academic_cons: row.academicCons || '',
+        academic_non: row.academicNon || '',
+        emotional_skills: row.emotionalSkills || '',
+        talents: row.talents || '',
+        social_interaction: row.socialInteraction || '',
+        challenges: row.challenges || '',
+        piar_desc: row.piarDesc || '',
+        learning_crop_desc: row.learning_crop_desc || '',
+        comentary: row.comentary || '',
+        comentary_status: 'imported'
+      });
+    });
+
+    if (payload.length > 0) {
+      const { error } = await supabase
+        .from('student_comments')
+        .upsert(payload, { onConflict: 'student_id,station_id' });
+      
+      if (error) throw error;
+    }
+
+    return {
+      success: payload.length,
+      errors: 0,
+      missing
+    };
+  } catch (e) {
+    console.error("Error en importación masiva de comentarios:", e);
+    throw e;
+  } finally {
+    console.groupEnd();
+  }
+};

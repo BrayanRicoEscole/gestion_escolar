@@ -1,5 +1,5 @@
 
-import { SchoolYear, Station, LearningMoment, Section, GradeSlot, Subject, Area, Lab, Level, Modality, Skill } from '../../../types';
+import { SchoolYear, Station, LearningMoment, Section, GradeSlot, Subject, Area, Lab, Level, AtelierType, Skill } from '../../../types';
 
 const CSV_HEADERS = [
   'Nombre_Año',
@@ -24,6 +24,15 @@ const CSV_HEADERS = [
   'Skill_Descripcion'
 ];
 
+const escapeCsv = (value: string) => {
+  if (value == null) return '';
+  const stringValue = String(value);
+  if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  return stringValue;
+};
+
 export const generateYearTemplateCsv = () => {
   const rows = [
     CSV_HEADERS.join(','),
@@ -32,21 +41,49 @@ export const generateYearTemplateCsv = () => {
       '2027', 'Primer Semestre', '50', '2027-01-15', '2027-06-15',
       'Sowing / Exploración', '25', 'Evidencias de Clase', '40', 'Participación Activa', '100', '1 - 5',
       '', '', '', '', '', '', '', ''
-    ].join(','),
+    ].map(escapeCsv).join(','),
     // Ejemplo 2: Configuración de Asignatura y Grupos
     [
       '2027', 'Primer Semestre', '50', '2027-01-15', '2027-06-15',
       '', '', '', '', '', '', '',
-      'Lenguaje Creativo', 'ClePe', 'ClePe', 'C1-M;C2-M;D1-C', 'Renfort En Sede (RS);Renfort En Casa (RC)', 'C;D;E', '', ''
-    ].join(','),
+      'Lenguaje Creativo', 'ClePe', 'ClePe', 'C1-M;C2-M;D1-C', 'Atelier Mónaco (M);Atelier Casa (C)', 'C;D;E', '', ''
+    ].map(escapeCsv).join(','),
     // Ejemplo 3: Banco de Habilidades
     [
       '2027', 'Primer Semestre', '50', '2027-01-15', '2027-06-15',
       '', '', '', '', '', '', '',
       'Lenguaje Creativo', 'ClePe', 'ClePe', '', '', '', 'C', 'Reconoce la estructura de un texto narrativo simple.'
-    ].join(',')
+    ].map(escapeCsv).join(',')
   ];
   return rows.join('\n');
+};
+
+/**
+ * Parsea una línea de CSV respetando las comillas
+ */
+const parseCsvLine = (line: string): string[] => {
+  const parts: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let j = 0; j < line.length; j++) {
+    const char = line[j];
+    if (char === '"') {
+      if (inQuotes && line[j + 1] === '"') {
+        current += '"';
+        j++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      parts.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  parts.push(current.trim());
+  return parts;
 };
 
 export const parseYearCsv = (text: string): SchoolYear[] => {
@@ -55,7 +92,7 @@ export const parseYearCsv = (text: string): SchoolYear[] => {
 
   lines.forEach(line => {
     // Procesar comas cuidando posibles puntos y comas usados como separadores internos
-    const columns = line.split(',').map(s => s?.trim() || '');
+    const columns = parseCsvLine(line);
     if (columns.length < CSV_HEADERS.length) return;
 
     const [
@@ -126,7 +163,7 @@ export const parseYearCsv = (text: string): SchoolYear[] => {
           area: subArea as Area || Area.STEAM,
           lab: subLab as Lab || Lab.MEC,
           courses: subCourses ? subCourses.split(';').map(c => c.trim()) : [],
-          modalities: subModalities ? subModalities.split(';').map(m => m.trim() as Modality) : [],
+          ateliers: subModalities ? subModalities.split(';').map(m => m.trim() as AtelierType) : [],
           levels: subLevels ? subLevels.split(';').map(l => l.trim() as Level) : [],
           skills: []
         };

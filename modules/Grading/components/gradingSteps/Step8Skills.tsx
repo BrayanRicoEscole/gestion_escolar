@@ -1,7 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
-import { Target, PlusCircle, Trash2, Award, ChevronRight, BookOpen } from 'lucide-react';
-import { SchoolYear, Level, Skill } from '../../../../types';
+import React, { useState, useMemo, useRef } from 'react';
+import { Target, PlusCircle, Trash2, Award, ChevronRight, BookOpen, Download, Upload } from 'lucide-react';
+import { SchoolYear, Level } from '../../../../types';
+import { useSkillsManagement } from '../../hooks/useSkillsManagement';
 
 const CATEGORIES = [
   { id: 'petine', name: 'Petiné', range: [Level.C], color: 'bg-rose-500' },
@@ -18,49 +19,24 @@ export const Step8Skills: React.FC<{
   onSelectStation: (i: number) => void,
   onSelectSubject: (i: number) => void
 }> = ({ year, setYear, stationIdx, subjectIdx, onSelectStation, onSelectSubject }) => {
-  const currentStation = year.stations[stationIdx];
-  const currentSubject = currentStation?.subjects[subjectIdx];
-  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeCategoryId, setActiveCategoryId] = useState('petine');
   const [selectedLevel, setSelectedLevel] = useState<Level>(Level.C);
+
+  const {
+    addSkill,
+    removeSkill,
+    updateSkill,
+    exportSkillsToCsv,
+    importSkillsFromCsv,
+    currentSubject,
+    currentStation,
+    hasUnsyncedChanges
+  } = useSkillsManagement(year, setYear, stationIdx, subjectIdx);
 
   const activeCategory = useMemo(() => 
     CATEGORIES.find(c => c.id === activeCategoryId) || CATEGORIES[0]
   , [activeCategoryId]);
-
-  const addSkill = () => {
-    if (!currentSubject) return;
-    const newSkill: Skill = {
-      id: crypto.randomUUID(),
-      level: selectedLevel,
-      description: ''
-    };
-    setYear((prev: SchoolYear) => {
-      const nextYear = JSON.parse(JSON.stringify(prev)) as SchoolYear;
-      const sub = nextYear.stations[stationIdx].subjects[subjectIdx];
-      sub.skills = [...(sub.skills || []), newSkill];
-      return nextYear;
-    });
-  };
-
-  const removeSkill = (id: string) => {
-    setYear((prev: SchoolYear) => {
-      const nextYear = JSON.parse(JSON.stringify(prev)) as SchoolYear;
-      const sub = nextYear.stations[stationIdx].subjects[subjectIdx];
-      sub.skills = (sub.skills || []).filter(s => s.id !== id);
-      return nextYear;
-    });
-  };
-
-  const updateSkill = (id: string, text: string) => {
-    setYear((prev: SchoolYear) => {
-      const nextYear = JSON.parse(JSON.stringify(prev)) as SchoolYear;
-      const sub = nextYear.stations[stationIdx].subjects[subjectIdx];
-      const skill = sub.skills?.find(s => s.id === id);
-      if (skill) skill.description = text;
-      return nextYear;
-    });
-  };
 
   const levelSkills = currentSubject?.skills?.filter(s => s.level === selectedLevel) || [];
 
@@ -69,8 +45,23 @@ export const Step8Skills: React.FC<{
     setSelectedLevel(cat.range[0]);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      importSkillsFromCsv(file);
+      // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8 animate-in slide-in-from-right-4 duration-300">
+      {hasUnsyncedChanges && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3 text-amber-700 animate-pulse">
+          <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+          <p className="text-xs font-bold uppercase tracking-wider">Tienes habilidades nuevas o importadas sin sincronizar con la base de datos. Pulsa "Sincronizar Cambios" arriba.</p>
+        </div>
+      )}
       {/* Header con Selección de Estructura Principal */}
       <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
         <div className="flex items-center gap-6">
@@ -137,6 +128,28 @@ export const Step8Skills: React.FC<{
                Las habilidades definidas aquí se mostrarán automáticamente a los growers que califiquen el nivel <strong>{selectedLevel}</strong> en <strong>{currentSubject?.name}</strong>.
              </p>
           </div>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={exportSkillsToCsv}
+              className="flex items-center justify-center gap-2 w-full p-4 rounded-2xl bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+            >
+              <Download size={16} /> Exportar CSV
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center justify-center gap-2 w-full p-4 rounded-2xl bg-white border border-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+            >
+              <Upload size={16} /> Importar CSV
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".csv"
+              className="hidden"
+            />
+          </div>
         </div>
 
         {/* Panel de Edición de Habilidades */}
@@ -156,7 +169,7 @@ export const Step8Skills: React.FC<{
               </div>
             </div>
             <button 
-              onClick={addSkill}
+              onClick={() => addSkill(selectedLevel)}
               className="bg-slate-900 text-white px-8 py-4 rounded-2xl text-sm font-black shadow-2xl hover:bg-slate-800 transition-all flex items-center gap-2 active:scale-95"
             >
               <PlusCircle size={22} /> Agregar Desempeño

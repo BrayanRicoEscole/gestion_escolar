@@ -5,9 +5,42 @@ import { isValidUUID } from './utils';
 import { SkillSelection } from 'types';
 
 
-export const getSkillSelections = async (): Promise<SkillSelection[]> => {
-    const { data } = await supabase.from('student_skill_selections').select('*');
-    return (data || []).map((s: any) => ({ 
+export const getSkillSelections = async (subjectIds?: string[], studentIds?: string[]): Promise<SkillSelection[]> => {
+    const PAGE_SIZE = 5000;
+    let allSelections: any[] = [];
+    let from = 0;
+    let to = PAGE_SIZE - 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      let query = supabase.from('student_skill_selections').select('*').range(from, to);
+      
+      if (subjectIds && subjectIds.length > 0) {
+        query = query.in('subject_id', subjectIds);
+      }
+      if (studentIds && studentIds.length > 0) {
+        query = query.in('student_id', studentIds);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        allSelections = [...allSelections, ...data];
+        if (data.length < PAGE_SIZE) {
+          hasMore = false;
+        } else {
+          from += PAGE_SIZE;
+          to += PAGE_SIZE;
+        }
+      } else {
+        hasMore = false;
+      }
+      
+      if (allSelections.length > 30000) break;
+    }
+
+    return allSelections.map((s: any) => ({ 
       studentId: s.student_id, 
       skillId: s.skill_id, 
       subjectId: s.subject_id, 
@@ -33,8 +66,11 @@ export const saveSkillSelections= async (selections: SkillSelection[], subjectId
           station_id: s.stationId 
         }));
 
-      if (valid.length > 0) {
-        const { error } = await supabase.from('student_skill_selections').insert(valid);
+      // Deduplicar para evitar errores de PK duplicada en el mismo insert
+      const deduplicated = Array.from(new Set(valid.map(s => JSON.stringify(s)))).map(s => JSON.parse(s));
+
+      if (deduplicated.length > 0) {
+        const { error } = await supabase.from('student_skill_selections').insert(deduplicated);
         if (error) {
           console.error("[DB] Error al guardar habilidades:", error);
           // Si es un error de FK, informamos al usuario que debe matricular primero

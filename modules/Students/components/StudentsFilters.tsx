@@ -6,14 +6,14 @@ import { Student } from 'types';
 interface Filters {
   search: string;
   atelier: string;
-  modality: string;
+  atelierType: string;
   grade: string;
 }
 
 interface Setters {
   setSearch: (v: string) => void;
   setAtelier: (v: string) => void;
-  setModality: (v: string) => void;
+  setAtelierType: (v: string) => void;
   setGrade: (v: string) => void;
 }
 
@@ -75,15 +75,17 @@ export const StudentsFilters: React.FC<Props> = ({
           ))}
         </select>
 
-        {/* Modalidad */}
+        {/* Tipo Atelier */}
         <select
-          value={filters.modality}
-          onChange={e => setters.setModality(e.target.value)}
+          value={filters.atelierType}
+          onChange={e => setters.setAtelierType(e.target.value)}
           className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-xs font-bold text-black focus:ring-2 focus:ring-primary/20"
         >
-          <option value="all">Todas las Modalidades</option>
-          <option value="RS">Renfort Sede (RS)</option>
-          <option value="RC">Renfort Casa (RC)</option>
+          <option value="all">Todos los Tipos</option>
+          <option value="A">Alhambra (A)</option>
+          <option value="C">Casa (C)</option>
+          <option value="MS">Mandalay (MS)</option>
+          <option value="M">Mónaco (M)</option>
         </select>
 
         {/* Grado */}

@@ -8,15 +8,20 @@ import { parseCSV } from '../utils/parseCSV';
 // 2. Returns syncing, status, syncFromSpreadsheet, and syncFromFile.
 export const useStudentSync = ({ onSuccess }: { onSuccess: () => void }) => {
   const [syncing, setSyncing] = useState(false);
-  const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [status, setStatus] = useState<{ type: 'success' | 'error', message: string, details?: string[] } | null>(null);
 
   const sync = async (data: any[]) => {
     setSyncing(true);
     setStatus(null);
     try {
       const res = await syncStudentsFromSpreadsheet(data);
-      const msg = `Nuevos: ${res.success}. Omitidos: ${res.skipped}. Errores: ${res.errors}`;
-      setStatus({ type: 'success', message: msg });
+      const msg = `Sincronización finalizada.`;
+      const summary = `Nuevos: ${res.success}. Omitidos: ${res.skipped}. Errores: ${res.errors}`;
+      setStatus({ 
+        type: res.errors > 0 ? 'error' : 'success', 
+        message: `${msg} ${summary}`,
+        details: res.errorDetails
+      });
       onSuccess();
     } catch (e: any) {
       setStatus({ type: 'error', message: e.message });

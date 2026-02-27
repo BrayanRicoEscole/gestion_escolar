@@ -9,9 +9,10 @@ import { StudentsFilters } from './components/StudentsFilters';
 import { StudentsTable } from './components/StudentsTable';
 import { StudentModal } from './components/StudentModal';
 import { enrollStudentsInYear, getSchoolYearsList, promoteStudentsInBulk, retireStudentsInBulk } from '../../services/api';
+import { exportStudentsToCSV } from './utils/exportCSV';
 import { 
   GraduationCap, Loader2, Sparkles, CheckCircle2, ShieldQuestion, 
-  TrendingUp, UserX, AlertCircle, X 
+  TrendingUp, UserX, AlertCircle, X, FileDown 
 } from 'lucide-react';
 
 export const ActiveStudentsModule: React.FC = () => {
@@ -117,12 +118,21 @@ export const ActiveStudentsModule: React.FC = () => {
            <p className="text-slate-500 font-medium mt-2">Administra el ciclo de vida, promoción y retiro de la comunidad educativa</p>
         </div>
 
-        {actionSuccess && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-6 py-3 rounded-2xl flex items-center gap-3 animate-bounce">
-            <CheckCircle2 size={18} />
-            <span className="text-xs font-black uppercase tracking-widest">{actionSuccess}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => exportStudentsToCSV(students)}
+            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 shadow-sm"
+          >
+            <FileDown size={14} className="text-primary" /> Descargar CSV
+          </button>
+          
+          {actionSuccess && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-6 py-3 rounded-2xl flex items-center gap-3 animate-bounce">
+              <CheckCircle2 size={18} />
+              <span className="text-xs font-black uppercase tracking-widest">{actionSuccess}</span>
+            </div>
+          )}
+        </div>
       </header>
 
       <SyncPanel

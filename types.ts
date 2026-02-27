@@ -24,9 +24,11 @@ export enum Lab {
   MEC = 'MEC'
 }
 
-export enum Modality {
-  RC = 'Renfort En Casa (RC)',
-  RS = 'Renfort En Sede (RS)'
+export enum AtelierType {
+  ALHAMBRA = 'Atelier Alhambra (A)',
+  CASA = 'Atelier Casa (C)',
+  MANDALAY = 'Atelier Mandalay (MS)',
+  MONACO = 'Atelier Mónaco (M)'
 }
 
 export enum Level {
@@ -57,11 +59,14 @@ export interface GradeSlot {
   scale: string;
 }
 
+export type GradingType = 'weighted' | 'simple';
+
 export interface Section {
   id: string;
   name: string;
   weight: number;
   gradeSlots: GradeSlot[];
+  grading_type?: GradingType;
 }
 
 export interface LearningMoment {
@@ -77,7 +82,7 @@ export interface Subject {
   area: Area;
   lab: Lab;
   courses: string[];
-  modalities: Modality[];
+  ateliers: AtelierType[];
   levels: Level[];
   skills?: Skill[]; 
 }

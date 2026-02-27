@@ -1,3 +1,4 @@
+// Test comment
 import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, Users, Settings, LayoutDashboard,
@@ -47,7 +48,7 @@ const App: React.FC = () => {
 
   if (isAuthLoading)  {
     return (
-      <FullScreenLoader/>
+      <FullScreenLoader singOut={logout}/>
     );
   }
 
@@ -57,9 +58,9 @@ const App: React.FC = () => {
     );
   }
 
-  if (isProfileLoading || !profile) {
-    return <FullScreenLoader />;
-  }
+  if (isAuthenticated && (isProfileLoading || !profile)) {
+  return <FullScreenLoader  singOut={logout}/>;
+}
 
   const isSupport = profile.role === 'support';
   const modules = [
@@ -81,7 +82,7 @@ const App: React.FC = () => {
       case 'retired_students': return <RetiredStudentsModule />;
       case 'grading': return <TeacherGradingView userRole={profile.role} />;
       case 'grading_setup': return <GradingModule />;
-      case 'comments': return <TeacherCommentsView />;
+      case 'comments': return <TeacherCommentsView userRole={profile.role} />;
       case 'reports': return <ReportsModule />;
       case 'users': return <UserManagementModule />;
       default: return <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest">Módulo no disponible</div>;

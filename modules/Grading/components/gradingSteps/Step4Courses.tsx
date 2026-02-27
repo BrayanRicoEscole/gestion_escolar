@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Modality, Level } from '../../../../types';
-import { Globe, CheckCircle2, LayoutGrid, Home, MapPin } from 'lucide-react';
+import { AtelierType, Level } from '../../../../types';
+import { Globe, CheckCircle2, LayoutGrid, Home, Building2, Palmtree, Crown, Check, X } from 'lucide-react';
 
 const CATEGORIES = [
   { id: 'petine', name: 'Petiné', range: [Level.C], color: 'bg-rose-500', textColor: 'text-rose-600', bgColor: 'bg-rose-50' },
@@ -39,6 +39,12 @@ export const Step4Courses: React.FC<{
     }
   };
 
+  const toggleAllInLetter = (modalitySuffix: string, letter: string, shouldAdd: boolean) => {
+    if (!subject) return;
+    const codesToToggle: string[] = numbers.map(n => `${letter}${n}-${modalitySuffix}`);
+    onToggle(subjectIdx, codesToToggle, shouldAdd);
+  };
+
   return (
     <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-8">
@@ -47,7 +53,7 @@ export const Step4Courses: React.FC<{
             <Globe size={18} className="text-primary" />
             <span className="text-[10px] font-black text-primary uppercase tracking-widest">Configuración de Grupos</span>
           </div>
-          <h4 className="font-black text-slate-800 text-3xl tracking-tight">Cursos y Modalidades</h4>
+          <h4 className="font-black text-slate-800 text-3xl tracking-tight">Cursos y Ateliers</h4>
           <p className="text-slate-400 text-sm font-bold mt-1">Defina qué grupos pertenecen a la materia {subject?.name || 'sin seleccionar'}</p>
         </div>
 
@@ -70,13 +76,23 @@ export const Step4Courses: React.FC<{
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {[ 
-          { mod: Modality.RS, suffix: 'M', color: 'primary', icon: MapPin, title: 'Renfort En Sede', badgeColor: 'bg-blue-100 text-blue-700' },
-          { mod: Modality.RC, suffix: 'C', color: 'orange', icon: Home, title: 'Renfort En Casa', badgeColor: 'bg-orange-100 text-orange-700' }
+          { mod: AtelierType.ALHAMBRA, suffix: 'A', color: 'primary', icon: Building2, title: 'Atelier Alhambra', badgeColor: 'bg-blue-100 text-blue-700' },
+          { mod: AtelierType.CASA, suffix: 'C', color: 'orange', icon: Home, title: 'Atelier Casa', badgeColor: 'bg-orange-100 text-orange-700' },
+          { mod: AtelierType.MANDALAY, suffix: 'MS', color: 'emerald', icon: Palmtree, title: 'Atelier Mandalay', badgeColor: 'bg-emerald-100 text-emerald-700' },
+          { mod: AtelierType.MONACO, suffix: 'M', color: 'slate', icon: Crown, title: 'Atelier Mónaco', badgeColor: 'bg-slate-200 text-slate-800' }
         ].map(config => (
           <div key={config.suffix} className="flex flex-col h-full bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden group hover:border-primary/20 transition-all">
-            <div className={`p-6 border-b border-slate-50 flex items-center justify-between ${config.suffix === 'M' ? 'bg-blue-50/30' : 'bg-orange-50/30'}`}>
+            <div className={`p-6 border-b border-slate-50 flex items-center justify-between ${
+              config.suffix === 'A' ? 'bg-blue-50/30' : 
+              config.suffix === 'C' ? 'bg-orange-50/30' : 
+              config.suffix === 'MS' ? 'bg-emerald-50/30' : 'bg-slate-50/30'
+            }`}>
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm bg-white ${config.suffix === 'M' ? 'text-primary' : 'text-orange-600'}`}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm bg-white ${
+                  config.suffix === 'A' ? 'text-primary' : 
+                  config.suffix === 'C' ? 'text-orange-600' : 
+                  config.suffix === 'MS' ? 'text-emerald-600' : 'text-slate-800'
+                }`}>
                   <config.icon size={24} />
                 </div>
                 <div>
@@ -109,11 +125,27 @@ export const Step4Courses: React.FC<{
                     </div>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nivel {levelChar}</span>
                     <div className="flex-1 h-[1px] bg-slate-100"></div>
+                    
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={() => toggleAllInLetter(config.suffix, levelChar, true)}
+                        className="p-1 rounded-md bg-slate-50 text-slate-400 hover:bg-green-50 hover:text-green-600 transition-all"
+                        title={`Activar todos los ${levelChar}`}
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button 
+                        onClick={() => toggleAllInLetter(config.suffix, levelChar, false)}
+                        className="p-1 rounded-md bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
+                        title={`Desactivar todos los ${levelChar}`}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                     {numbers.map(n => {
-                      // Fix: Changed levelLetter to levelChar to correctly reference the loop variable
                       const code = `${levelChar}${n}-${config.suffix}`;
                       const active = subject?.courses?.includes(code);
                       return (
@@ -122,7 +154,10 @@ export const Step4Courses: React.FC<{
                           onClick={() => onToggle(subjectIdx, code)}
                           className={`group relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all border-2 ${
                             active 
-                              ? (config.suffix === 'M' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-orange-600 border-orange-600 text-white shadow-lg') 
+                              ? (config.suffix === 'A' ? 'bg-primary border-primary text-white shadow-lg' : 
+                                 config.suffix === 'C' ? 'bg-orange-600 border-orange-600 text-white shadow-lg' :
+                                 config.suffix === 'MS' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' :
+                                 'bg-slate-800 border-slate-800 text-white shadow-lg') 
                               : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200 hover:bg-white'
                           }`}
                         >

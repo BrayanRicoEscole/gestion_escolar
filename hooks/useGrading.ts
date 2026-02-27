@@ -16,7 +16,8 @@ import {
   saveGrades,
   saveSkillSelections,
   getSchoolYearsList,
-  processDeepGradesImport
+  processDeepGradesImport,
+  copyStationData
 } from '../services/api'
 import { supabase } from '../services/api/client'
 
@@ -38,8 +39,12 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const [selectedCourse, setSelectedCourse] = useState('')
 
   const [selectedAtelier, setSelectedAtelier] = useState('all')
-  const [selectedModality, setSelectedModality] = useState('all')
+  const [selectedAtelierType, setSelectedAtelierType] = useState('all')
   const [selectedAcademicLevel, setSelectedAcademicLevel] = useState('all')
+  const [selectedLevelGroup, setSelectedLevelGroup] = useState<'Petiné' | 'Elementary' | 'Middle' | 'Highschool'>('Petiné');
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [isSaving, setIsSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -47,27 +52,19 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const gradesChannelRef = useRef<any>(null);
   const levelingChannelRef = useRef<any>(null);
 
-  // 1. Carga inicial
+  
+
+  // 1. Carga inicial de años
   useEffect(() => {
     const fetchInitial = async () => {
       try {
-        const [years, gr, sk, lv] = await Promise.all([
-          getSchoolYearsList(),
-          getGrades(),
-          getSkillSelections(),
-          getLevelingGrades()
-        ]);
-        
+        const years = await getSchoolYearsList();
         setAllYears(years);
-        setGrades(gr);
-        setSkillSelections(sk || []);
-        setLevelingGrades(lv || []);
-
         if (years.length > 0) {
           setSelectedYearId(years[0].id);
         }
       } catch (e) {
-        console.error('[DB] ❌ Error en carga base:', e);
+        console.error('[DB] ❌ Error en carga inicial:', e);
       }
     };
     fetchInitial();
@@ -124,15 +121,8 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
         selectedSubjectId
       );
 
-      // Refrescar datos locales tras cambios en DB
-      const [newGrades, newSkills, newStudents] = await Promise.all([
-        getGrades(), 
-        getSkillSelections(),
-        getEnrolledStudents(selectedYearId)
-      ]);
-      
-      setGrades(newGrades);
-      setSkillSelections(newSkills);
+      // Refrescar lista de estudiantes (esto disparará el useEffect de carga de notas para la página actual)
+      const newStudents = await getEnrolledStudents(selectedYearId);
       setStudents(newStudents);
       
       return result;
@@ -167,10 +157,14 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
   const filteredStudents = useMemo(() => {
     if (subjectFilter && !currentSubject) return [];
-    return students.filter(student => {
-      const modality = student.modality || '';
-      const isSede = modality === 'RS' || modality.includes('Sede') || modality.includes('(RS)');
-      const suffix = isSede ? 'M' : 'C';
+    const result = students.filter(student => {
+      const atelierName = (student.atelier || '').toLowerCase();
+      let suffix = 'C';
+      if (atelierName.includes('alhambra')) suffix = 'A';
+      else if (atelierName.includes('mandalay')) suffix = 'MS';
+      else if (atelierName.includes('mónaco') || atelierName.includes('monaco')) suffix = 'M';
+      else if (atelierName.includes('casa')) suffix = 'C';
+
       const studentCourseCode = `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
       if (subjectFilter && currentSubject) {
         const allowedCourses = currentSubject.courses || [];
@@ -178,13 +172,155 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       }
       const matchesSearch = !searchTerm || student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || student.document.includes(searchTerm);
       const matchesAtelier = selectedAtelier === 'all' || student.atelier === selectedAtelier;
-      const matchesModality = selectedModality === 'all' || student.modality === selectedModality;
+      const matchesAtelierType = selectedAtelierType === 'all' || suffix === selectedAtelierType;
       const matchesAcademicLevel = selectedAcademicLevel === 'all' || student.academic_level === selectedAcademicLevel;
+      
+      let matchesLevelGroup = true;
+      const groupLevels = {
+        'Petiné': ['C'],
+        'Elementary': ['D', 'E', 'F', 'G'],
+        'Middle': ['H', 'I', 'J', 'K'],
+        'Highschool': ['L', 'M', 'N']
+      }[selectedLevelGroup];
+      
+      const levelChar = (student.academic_level || '').charAt(0).toUpperCase();
+      matchesLevelGroup = groupLevels.includes(levelChar);
+
       let matchesCourseSelection = true;
+
       if (selectedCourse) matchesCourseSelection = studentCourseCode === selectedCourse.trim().toUpperCase();
-      return matchesSearch && matchesAtelier && matchesModality && matchesAcademicLevel && matchesCourseSelection;
+      return matchesSearch && matchesAtelier && matchesAtelierType && matchesAcademicLevel && matchesLevelGroup && matchesCourseSelection;
     });
-  }, [students, searchTerm, selectedCourse, selectedAtelier, selectedModality, selectedAcademicLevel, currentSubject, subjectFilter]);
+
+    // Ordenar por Nivel Académico y luego por Nombre
+    return result.sort((a, b) => {
+      const levelA = a.academic_level || '';
+      const levelB = b.academic_level || '';
+      if (levelA !== levelB) return levelA.localeCompare(levelB);
+      return a.full_name.localeCompare(b.full_name);
+    });
+    
+  }, [students, searchTerm, selectedCourse, selectedAtelier, selectedAtelierType, selectedAcademicLevel, selectedLevelGroup, currentSubject, subjectFilter]);
+
+  const paginatedStudents = useMemo(() => {
+    if (filteredStudents.length <= pageSize) return filteredStudents;
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
+
+  const allSubjectIds = useMemo(() => {
+    return currentStation?.subjects?.map(s => s.id) || [];
+  }, [currentStation]);
+
+  // 3. Carga de notas y habilidades al cambiar de materia/estación o grupo de nivel
+  useEffect(() => {
+    const targetSubjectIds = subjectFilter ? (selectedSubjectId ? [selectedSubjectId] : []) : allSubjectIds;
+    
+    if (targetSubjectIds.length === 0) {
+      setGrades([]);
+      setSkillSelections([]);
+      setLevelingGrades([]);
+      return;
+    }
+
+    const fetchSubjectData = async () => {
+      try {
+        // Solo cargar datos para los estudiantes visibles en la página actual
+        const studentIds = paginatedStudents.map(s => s.id || '');
+        
+        // Si no hay estudiantes en esta página, no tiene sentido consultar
+        if (studentIds.length === 0) {
+          setGrades([]);
+          setSkillSelections([]);
+          setLevelingGrades([]);
+          return;
+        }
+
+        const [gr, sk, lv] = await Promise.all([
+          getGrades(targetSubjectIds, studentIds),
+          getSkillSelections(targetSubjectIds, studentIds),
+          getLevelingGrades(targetSubjectIds, studentIds)
+        ]);
+
+        setGrades(gr);
+        setSkillSelections(sk || []);
+        setLevelingGrades(lv || []);
+      } catch (e) {
+        console.error('[DB] ❌ Error cargando datos de materia:', e);
+      }
+    };
+
+    fetchSubjectData();
+  }, [selectedSubjectId, selectedStationId, paginatedStudents, subjectFilter, allSubjectIds]);
+
+  /**
+   * Carga datos específicos para un estudiante (útil para previsualizaciones)
+   */
+  const fetchStudentData = async (studentId: string) => {
+    const targetSubjectIds = subjectFilter ? (selectedSubjectId ? [selectedSubjectId] : []) : allSubjectIds;
+    if (targetSubjectIds.length === 0) return;
+
+    try {
+      const [gr, sk, lv] = await Promise.all([
+        getGrades(targetSubjectIds, [studentId]),
+        getSkillSelections(targetSubjectIds, [studentId]),
+        getLevelingGrades(targetSubjectIds, [studentId])
+      ]);
+
+      // Mezclar con los datos existentes evitando duplicados
+      setGrades(prev => {
+        const otherStudents = prev.filter(g => g.studentId !== studentId);
+        return [...otherStudents, ...gr];
+      });
+      setSkillSelections(prev => {
+        const otherStudents = prev.filter(s => s.studentId !== studentId);
+        return [...otherStudents, ...(sk || [])];
+      });
+      setLevelingGrades(prev => {
+        const otherStudents = prev.filter(l => l.studentId !== studentId);
+        return [...otherStudents, ...(lv || [])];
+      });
+    } catch (e) {
+      console.error('[DB] ❌ Error cargando datos individuales:', e);
+    }
+  };
+
+  const handleCopyStationData = async (sourceStationId: string) => {
+    if (!selectedStationId || !selectedSubjectId || !selectedYearId) return;
+    setIsSaving(true);
+    try {
+      const result = await copyStationData(
+        sourceStationId,
+        selectedStationId,
+        selectedSubjectId,
+        selectedYearId
+      );
+      
+      if (result.success) {
+        // Recargar datos
+        const [sy, gr, sk, lv] = await Promise.all([
+          getSchoolYear(selectedYearId),
+          getGrades([selectedSubjectId], paginatedStudents.map(s => s.id || '')),
+          getSkillSelections([selectedSubjectId], paginatedStudents.map(s => s.id || '')),
+          getLevelingGrades([selectedSubjectId], paginatedStudents.map(s => s.id || ''))
+        ]);
+        setSchoolYear(sy);
+        setGrades(gr);
+        setSkillSelections(sk || []);
+        setLevelingGrades(lv || []);
+      }
+      return result;
+    } catch (err) {
+      console.error("Error copiando datos de estación:", err);
+      throw err;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedLevelGroup, selectedAtelier, searchTerm, selectedCourse, selectedAtelierType, selectedAcademicLevel]);
 
   const handleGradeChange = async (studentId: string, slotId: string, subjectId: string, value: string) => {
     const numValue = value === '' ? null : parseFloat(value);
@@ -231,10 +367,11 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
   return {
     isLoading, allYears, selectedYearId, setSelectedYearId, schoolYear, currentStation, currentSubject,
-    filteredStudents, selectedStationId, setSelectedStationId, selectedSubjectId, setSelectedSubjectId,
-    selectedCourse, setSelectedCourse, selectedAtelier, setSelectedAtelier, selectedModality, setSelectedModality,
-    selectedAcademicLevel, setSelectedAcademicLevel, searchTerm, setSearchTerm, isSaving, grades, skillSelections,
+    filteredStudents, paginatedStudents, totalStudents: filteredStudents.length, currentPage, setCurrentPage, pageSize, setPageSize,
+    selectedStationId, setSelectedStationId, selectedSubjectId, setSelectedSubjectId,
+    selectedCourse, setSelectedCourse, selectedAtelier, setSelectedAtelier, selectedAtelierType, setSelectedAtelierType,
+    selectedAcademicLevel, setSelectedAcademicLevel, selectedLevelGroup, setSelectedLevelGroup, searchTerm, setSearchTerm, isSaving, grades, skillSelections,
     handleGradeChange, handleLevelingChange, getGradeValue, getLevelingValue, toggleSkillSelection, getSkillSelectionsForStudent,
-    bulkImportGradesAndSkills
+    bulkImportGradesAndSkills, fetchStudentData, handleCopyStationData
   };
 };

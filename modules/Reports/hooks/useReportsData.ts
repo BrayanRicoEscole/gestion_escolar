@@ -25,22 +25,23 @@ export const useReportsData = () => {
     fetchComments();
   }, [grading.selectedStationId]);
 
-  // Calcula el total de notas esperadas por estación
+  // Calcula el total de notas esperadas por estación (todas las materias)
   const expectedSlotsCount = useMemo(() => {
     if (!grading.currentStation) return 0;
-    let count = 0;
+    let slotsPerSubject = 0;
     grading.currentStation.moments.forEach(m => {
       m.sections.forEach(s => {
-        count += (s.gradeSlots?.length || 0);
+        slotsPerSubject += (s.gradeSlots?.length || 0);
       });
     });
-    return count;
+    const subjectCount = grading.currentStation.subjects?.length || 0;
+    return slotsPerSubject * subjectCount;
   }, [grading.currentStation]);
 
   // Validaciones en tiempo real para la pestaña de Estación
   const validationResults = useMemo(() => {
-    return grading.filteredStudents.map(student => {
-      // 1. Validar Notas (100% llenas)
+    return grading.paginatedStudents.map(student => {
+      // 1. Validar Notas (100% llenas en todas las materias de la estación)
       const studentGrades = grading.grades?.filter((g) => g.studentId === student.id) || [];
       const gradesComplete = expectedSlotsCount > 0 && studentGrades.length >= expectedSlotsCount;
 
@@ -70,7 +71,7 @@ export const useReportsData = () => {
         progress: expectedSlotsCount > 0 ? (studentGrades.length / expectedSlotsCount) * 100 : 0
       };
     });
-  }, [grading.filteredStudents, grading.currentStation, allComments, expectedSlotsCount, grading.grades]);
+  }, [grading.paginatedStudents, grading.currentStation, allComments, expectedSlotsCount, grading.grades]);
 
   return {
     ...grading,

@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { GradeEntry, Station, SkillSelection, Student } from '../../../../types';
+import { GradeEntry, Station, SkillSelection, Student } from '../../../types';
 
 interface MomentResult {
   id: string;
@@ -100,7 +100,7 @@ export function useReport(
 
       const finalStationAvg = momentResults.reduce((acc, m) => {
         const weight = momentWeightMap.get(m.id) || 0;
-        return acc + m.average * (weight / 100);
+        return acc + (Number(m.average) * (Number(weight) / 100));
       }, 0);
 
       // 2. Resolver descripciones de habilidades seleccionadas

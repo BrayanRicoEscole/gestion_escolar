@@ -23,6 +23,7 @@ interface ValidationTabProps {
   allGrades: GradeEntry[];
   allComments: StudentComment[];
   skillSelections: SkillSelection[];
+  fetchStudentData: (studentId: string) => Promise<void>;
 }
 
 export const ValidationTab: React.FC<ValidationTabProps> = ({
@@ -35,12 +36,20 @@ export const ValidationTab: React.FC<ValidationTabProps> = ({
   setSearchTerm,
   allGrades,
   allComments,
-  skillSelections
+  skillSelections,
+  fetchStudentData
 }) => {
   const [previewStudent, setPreviewStudent] = useState<any | null>(null);
   const [isBulkSending, setIsBulkSending] = useState(false);
   const [sendingProgress, setSendingProgress] = useState(0);
   const { generatePdfBlob } = usePdfGenerator();
+
+  const handlePreview = async (student: Student) => {
+    setPreviewStudent(student);
+    if (student.id) {
+      await fetchStudentData(student.id);
+    }
+  };
 
   const handleBulkSend = async () => {
     const aptStudents = validationResults.filter(r => r.canSend);
@@ -224,7 +233,7 @@ export const ValidationTab: React.FC<ValidationTabProps> = ({
                 <td className="px-6 py-5 text-right">
                   <div className="flex items-center justify-end gap-3">
                     <button 
-                      onClick={() => setPreviewStudent(student)}
+                      onClick={() => handlePreview(student)}
                       className="p-3 bg-white border border-slate-100 text-slate-400 hover:text-primary hover:border-primary/20 rounded-xl transition-all shadow-sm"
                       title="Previsualizar Reporte"
                     >

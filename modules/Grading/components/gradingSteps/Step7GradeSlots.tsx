@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { PlusCircle, Trash2, BookOpen, Layers } from 'lucide-react'
-import { SchoolYear } from '../../../../types';
+import { SchoolYear, GradingType } from '../../../../types';
 import { WeightBadge } from './WeightBadge';
 
 export const Step7GradeSlots: React.FC<{
@@ -17,8 +17,9 @@ export const Step7GradeSlots: React.FC<{
   onSelectSubject: (i: number) => void,
   onAdd: () => void,
   onMove: (slotIdx: number, fromSec: number, toSec: number) => void,
+  onUpdateGradingType: (type: GradingType) => void,
   total: number
-}> = ({ year, setYear, stationIdx, momentIdx, sectionIdx, subjectIdx, onSelectStation, onSelectMoment, onSelectSection, onSelectSubject, onAdd, onMove, total }) => {
+}> = ({ year, setYear, stationIdx, momentIdx, sectionIdx, subjectIdx, onSelectStation, onSelectMoment, onSelectSection, onSelectSubject, onAdd, onMove, onUpdateGradingType, total }) => {
   const currentStation = year.stations[stationIdx];
   const currentMoment = currentStation?.moments[momentIdx];
   const currentSection = currentMoment?.sections[sectionIdx];
@@ -71,6 +72,28 @@ export const Step7GradeSlots: React.FC<{
               </div>
               <h4 className="font-black text-slate-800 text-3xl tracking-tight">Criterios de Evaluación</h4>
               <p className="text-slate-400 text-xs font-bold mt-1 uppercase tracking-wider">Sección: {currentSection?.name}</p>
+              
+              <div className="flex items-center gap-4 mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex-1">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Tipo de Promedio</p>
+                  <p className="text-[9px] text-slate-400 font-medium">Define cómo se calcula el resultado de esta sección</p>
+                </div>
+                <div className="flex bg-white p-1 rounded-xl border border-slate-200">
+                  <button 
+                    onClick={() => onUpdateGradingType('weighted')}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${currentSection?.grading_type !== 'simple' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    Ponderado
+                  </button>
+                  <button 
+                    onClick={() => onUpdateGradingType('simple')}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${currentSection?.grading_type === 'simple' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    General
+                  </button>
+                </div>
+              </div>
+
               <div className="mt-4">
                 <WeightBadge total={total} />
               </div>
@@ -94,11 +117,14 @@ export const Step7GradeSlots: React.FC<{
                       type="text" 
                       value={slot.name} 
                       onChange={(e) => {
-                        const ns = [...year.stations];
-                        const sIdx = ns[stationIdx].moments[momentIdx].sections[sectionIdx].gradeSlots.findIndex(s => s.id === slot.id);
-                        if (sIdx !== -1) {
-                          ns[stationIdx].moments[momentIdx].sections[sectionIdx].gradeSlots[sIdx].name = e.target.value;
-                          setYear({...year, stations: ns});
+                        const nextYear = JSON.parse(JSON.stringify(year)) as SchoolYear;
+                        const section = nextYear.stations[stationIdx]?.moments[momentIdx]?.sections[sectionIdx];
+                        if (section) {
+                          const slotToUpdate = section.gradeSlots.find(s => s.id === slot.id);
+                          if (slotToUpdate) {
+                            slotToUpdate.name = e.target.value;
+                            setYear(nextYear);
+                          }
                         }
                       }} 
                       className="flex-1 bg-transparent border-none font-black text-slate-800 p-0 focus:ring-0 text-lg"
@@ -110,11 +136,14 @@ export const Step7GradeSlots: React.FC<{
                         type="number" 
                         value={slot.weight} 
                         onChange={(e) => {
-                          const ns = [...year.stations]; 
-                          const sIdx = ns[stationIdx].moments[momentIdx].sections[sectionIdx].gradeSlots.findIndex(s => s.id === slot.id);
-                          if (sIdx !== -1) {
-                            ns[stationIdx].moments[momentIdx].sections[sectionIdx].gradeSlots[sIdx].weight = Number(e.target.value);
-                            setYear({...year, stations: ns});
+                          const nextYear = JSON.parse(JSON.stringify(year)) as SchoolYear;
+                          const section = nextYear.stations[stationIdx]?.moments[momentIdx]?.sections[sectionIdx];
+                          if (section) {
+                            const slotToUpdate = section.gradeSlots.find(s => s.id === slot.id);
+                            if (slotToUpdate) {
+                              slotToUpdate.weight = Number(e.target.value);
+                              setYear(nextYear);
+                            }
                           }
                         }} 
                         className="w-16 bg-slate-50 border border-slate-100 rounded-xl py-2 px-2 text-center font-black text-slate-800 focus:ring-2 focus:ring-primary/20"
@@ -122,10 +151,12 @@ export const Step7GradeSlots: React.FC<{
                     </div>
                     <button 
                       onClick={() => {
-                        const ns = [...year.stations];
-                        ns[stationIdx].moments[momentIdx].sections[sectionIdx].gradeSlots = 
-                          ns[stationIdx].moments[momentIdx].sections[sectionIdx].gradeSlots.filter(s => s.id !== slot.id);
-                        setYear({...year, stations: ns});
+                        const nextYear = JSON.parse(JSON.stringify(year)) as SchoolYear;
+                        const section = nextYear.stations[stationIdx]?.moments[momentIdx]?.sections[sectionIdx];
+                        if (section) {
+                          section.gradeSlots = section.gradeSlots.filter(s => s.id !== slot.id);
+                          setYear(nextYear);
+                        }
                       }}
                       className="text-slate-300 hover:text-red-500 transition-all p-2"
                     >

@@ -9,7 +9,7 @@ const ReportHeader = () => {
       <img 
         src={headerPath} 
         alt="Red de Colegios RENFORT" 
-        className="w-full object-contain max-h-32" 
+        className="w-full max-h-32" 
         crossOrigin="anonymous"
         onError={(e) => {
           // Fallback si el asset no se encuentra
@@ -20,7 +20,6 @@ const ReportHeader = () => {
           }
         }}
       />
-      <div className="h-1 w-full bg-[#0f4899]"></div>
     </div>
   );
 };

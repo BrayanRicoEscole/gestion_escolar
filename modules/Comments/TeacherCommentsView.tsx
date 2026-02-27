@@ -1,10 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Loader2, Lock, Unlock, BrainCircuit, Heart, Users,
-  UserCircle,  Sprout
+  UserCircle,  Sprout, FileDown, FileUp, CheckCircle2, X
 } from 'lucide-react';
 import { useGrading } from '../../hooks/useGrading';
+import { StudentComment } from '../../types';
 
 import { GradingHeader } from '../Grading/components/TeacherGradingView/components/GradingHeader';
 import { GradingFilters } from '../Grading/components/TeacherGradingView/components/GradingFilters';
@@ -16,13 +17,18 @@ import { CommentSection } from './components/CommentSection';
 import { useTeacherComments } from './hooks/useTeacherComments';
 import { useDateLock } from './hooks/useDateLock';
 import { useMentorAI } from './hooks/useMentorAI';
+import { generateCommentsTemplateCsv, parseCommentsCsv } from './utils/CommentsCsvService';
 
-const TeacherCommentsView: React.FC = () => {
+const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grower' }) => {
   // Optimizamos: NO activar realtime de notas y desactivamos el filtro de materia
   const grading = useGrading({ realtime: false, subjectFilter: false });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<any>(null);
+
+  const isAdmin = userRole === 'support';
+
   const {
     isLoading = true,
-    // Add missing props destructuring
     allYears = [],
     selectedYearId = '',
     setSelectedYearId = () => {},
@@ -37,28 +43,74 @@ const TeacherCommentsView: React.FC = () => {
     setSelectedCourse,
     selectedAtelier,
     setSelectedAtelier,
-    selectedModality,
-    setSelectedModality,
+    selectedAtelierType,
+    setSelectedAtelierType,
     selectedAcademicLevel,
     setSelectedAcademicLevel,
+    selectedLevelGroup,
+    setSelectedLevelGroup,
     searchTerm,
     setSearchTerm,
   } = grading ?? {};
 
-  const isEditable = useDateLock(currentStation);
+  const isLockedByDate = useDateLock(currentStation);
+  const isEditable = !isLockedByDate || isAdmin;
   const { analyze, isAnalyzing } = useMentorAI();
 
   const {
     templates,
+    comments,
     selectedStudentId,
     setSelectedStudentId,
     currentComment,
     updateField,
+    bulkImport,
   } = useTeacherComments({
     schoolYear,
     stationId: selectedStationId,
     students: filteredStudents,
   });
+
+  const handleDownloadTemplate = () => {
+    if (!currentStation) return;
+    
+    const getCommentValue = (studentId: string, field: keyof StudentComment) => {
+      const comment = comments.find(c => c.studentId === studentId);
+      return comment ? String(comment[field] || '') : '';
+    };
+
+    const csv = generateCommentsTemplateCsv(currentStation, filteredStudents, getCommentValue);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `Plantilla_Comentarios_${currentStation.name}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const rows = parseCommentsCsv(text);
+        if (rows) {
+          const result = await bulkImport(rows);
+          setImportResult(result);
+        }
+      } catch (err) {
+        alert("Error al procesar el archivo CSV.");
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const [showAISuggestion, setShowAISuggestion] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -101,15 +153,107 @@ const TeacherCommentsView: React.FC = () => {
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto pb-40 animate-in fade-in duration-500 text-black">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 text-black">
-        <GradingHeader subjectName="Reporte Cualitativo" isSaving={false} saveSuccess={false} isEditable={isEditable} />
-        <div className="flex flex-col items-end gap-2 bg-white px-6 py-4 rounded-3xl border border-slate-100 shadow-sm">
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isEditable ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}>
-            {isEditable ? <Unlock size={12} /> : <Lock size={12} />}
-            {isEditable ? 'Edición Habilitada' : 'Bloqueado'}
-          </div>
+      
+      <div className="flex flex-col gap-4 mb-8">
+        {/* Tabs de Grupo Académico */}
+        <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
+          {(['Petiné', 'Elementary', 'Middle', 'Highschool'] as const).map((group) => (
+            <button
+              key={group}
+              onClick={() => setSelectedLevelGroup(group)}
+              className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedLevelGroup === group
+                  ? 'bg-white text-primary shadow-md scale-105'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              {group}
+            </button>
+          ))}
         </div>
       </div>
+
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 text-black">
+        <GradingHeader subjectName="Reporte Cualitativo" isSaving={false} saveSuccess={false} isEditable={isEditable} />
+        
+        <div className="flex flex-col items-end gap-3">
+           <div className="flex gap-2 bg-slate-900 p-1.5 rounded-2xl shadow-xl border border-white/10">
+              <button 
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                <FileDown size={14} className="text-primary" /> Plantilla
+              </button>
+              {isAdmin && (
+                <>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-primary-hover shadow-lg"
+                  >
+                    <FileUp size={14} /> Importar CSV
+                  </button>
+                  <input type="file" ref={fileInputRef} onChange={handleImportCsv} accept=".csv" className="hidden" />
+                </>
+              )}
+           </div>
+
+           <div className="flex flex-col items-end gap-2 bg-white px-6 py-4 rounded-[2rem] border border-slate-100 shadow-sm">
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isEditable ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}>
+                {isEditable ? <Unlock size={12} /> : <Lock size={12} />}
+                {isEditable ? 'Edición Habilitada' : 'Bloqueado'}
+                {isAdmin && isLockedByDate && ' (Bypass Admin)'}
+              </div>
+           </div>
+        </div>
+      </div>
+
+      {/* Modal de Resultado de Importación */}
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+           <div className="bg-white w-full max-w-xl rounded-[3rem] p-10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+              <div className="flex justify-between items-center mb-8">
+                 <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-blue-50 text-primary rounded-2xl flex items-center justify-center">
+                       <CheckCircle2 size={32} />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900">Resultado de Importación</h3>
+                 </div>
+                 <button onClick={() => setImportResult(null)} className="p-2 text-slate-300 hover:text-slate-600"><X size={24} /></button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                 <div className="p-4 bg-green-50 rounded-2xl border border-green-100 text-center">
+                    <p className="text-[10px] font-black text-green-600 uppercase mb-1">Cargados</p>
+                    <p className="text-3xl font-black text-green-700">{importResult.success}</p>
+                 </div>
+                 <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 text-center">
+                    <p className="text-[10px] font-black text-rose-600 uppercase mb-1">No Encontrados</p>
+                    <p className="text-3xl font-black text-rose-700">{importResult.missing?.length || 0}</p>
+                 </div>
+              </div>
+
+              {importResult.missing?.length > 0 && (
+                <div className="flex-1 overflow-y-auto pr-2">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Documentos no encontrados en el sistema:</p>
+                   <div className="space-y-2">
+                      {importResult.missing.map((doc: string) => (
+                        <div key={doc} className="p-3 bg-slate-50 rounded-xl text-xs font-bold text-slate-600 border border-slate-100">
+                           {doc}
+                        </div>
+                      ))}
+                   </div>
+                </div>
+              )}
+
+              <button 
+                onClick={() => setImportResult(null)}
+                className="mt-8 w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-800 transition-all"
+              >
+                Entendido
+              </button>
+           </div>
+        </div>
+      )}
 
       <GradingFilters
         // Add missing props allYears, selectedYearId, onYearChange
@@ -117,10 +261,10 @@ const TeacherCommentsView: React.FC = () => {
         selectedYearId={selectedYearId}
         onYearChange={setSelectedYearId}
         schoolYear={schoolYear} station={currentStation} selectedStationId={selectedStationId} selectedSubjectId={selectedSubjectId}
-        selectedCourse={selectedCourse} consolidationFilter="all" selectedAtelier={selectedAtelier} selectedModality={selectedModality}
+        selectedCourse={selectedCourse} consolidationFilter="all" selectedAtelier={selectedAtelier} selectedAtelierType={selectedAtelierType}
         selectedAcademicLevel={selectedAcademicLevel} searchTerm={searchTerm} onStationChange={setSelectedStationId}
         onSubjectChange={setSelectedSubjectId} onCourseChange={setSelectedCourse} onConsolidationChange={() => {}}
-        onAtelierChange={setSelectedAtelier} onModalityChange={setSelectedModality} onAcademicLevelChange={setSelectedAcademicLevel} onSearchChange={setSearchTerm}
+        onAtelierChange={setSelectedAtelier} onAtelierTypeChange={setSelectedAtelierType} onAcademicLevelChange={setSelectedAcademicLevel} onSearchChange={setSearchTerm}
       />
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">

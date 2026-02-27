@@ -22,6 +22,11 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     schoolYear = null,
     currentStation = null,
     filteredStudents = [],
+    paginatedStudents = [],
+    totalStudents = 0,
+    currentPage = 1,
+    setCurrentPage = () => {},
+    pageSize = 1000,
     selectedStationId = '',
     setSelectedStationId = () => {},
     selectedSubjectId = '',
@@ -30,13 +35,16 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     setSelectedCourse = () => {},
     selectedAtelier = 'all',
     setSelectedAtelier = () => {},
-    selectedModality = 'all',
-    setSelectedModality = () => {},
+    selectedAtelierType = 'all',
+    setSelectedAtelierType = () => {},
     selectedAcademicLevel = 'all',
     setSelectedAcademicLevel = () => {},
+    selectedLevelGroup = 'all',
+    setSelectedLevelGroup = () => {},
     searchTerm = '',
     setSearchTerm = () => {},
     isSaving = false,
+    currentSubject,
     getGradeValue = () => '',
     getLevelingValue = () => '',
     handleGradeChange = () => {},
@@ -73,12 +81,23 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
 
   const handleDownloadCsv = () => {
     if (!currentStation || !selectedSubjectId) return;
+
+    // Mapear IDs a descripciones para el CSV
+    const getSkillDescriptions = (studentId: string) => {
+      const ids = getSkillSelectionsForStudent(studentId);
+      return ids.map(id => {
+        const skill = currentSubject?.skills?.find(s => s.id === id);
+        return skill ? skill.description : id;
+      });
+    };
+
     const csv = generateGradesTemplateCsv(
       currentStation, 
       filteredStudents, 
       selectedSubjectId, 
       getGradeValue, 
-      getSkillSelectionsForStudent
+      getLevelingValue,
+      getSkillDescriptions
     );
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -113,7 +132,7 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
   };
 
   const studentsWithResults = useStudentResults({
-    students: filteredStudents,
+    students: paginatedStudents,
     station: currentStation,
     subjectId: selectedSubjectId,
     getGradeValue,
@@ -133,8 +152,47 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     );
   }
 
+  const totalPages = Math.ceil(totalStudents / pageSize);
+
   return (
     <div className="p-8 max-w-[1600px] mx-auto pb-40 animate-in fade-in duration-500 text-black">
+      
+      <div className="flex flex-col gap-4 mb-8">
+        {/* Tabs de Grupo Académico para Optimización */}
+        <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
+          {(['Petiné', 'Elementary', 'Middle', 'Highschool'] as const).map((group) => (
+            <button
+              key={group}
+              onClick={() => setSelectedLevelGroup(group)}
+              className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedLevelGroup === group
+                  ? 'bg-white text-primary shadow-md scale-105'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              {group}
+            </button>
+          ))}
+        </div>
+
+        {/* Tabs de Atelier para Optimización de Query */}
+        <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
+          {(['all', 'Mónaco', 'Alhambra', 'Mandalay', 'Casa'] as const).map((atelier) => (
+            <button
+              key={atelier}
+              onClick={() => setSelectedAtelier(atelier)}
+              className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedAtelier === atelier
+                  ? 'bg-primary text-white shadow-md scale-105'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              {atelier === 'all' ? 'Todos los Ateliers' : atelier}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <GradingHeader
           subjectName={currentSubjectName}
@@ -252,7 +310,7 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
         selectedCourse={selectedCourse}
         consolidationFilter="all"
         selectedAtelier={selectedAtelier}
-        selectedModality={selectedModality}
+        selectedAtelierType={selectedAtelierType}
         selectedAcademicLevel={selectedAcademicLevel}
         searchTerm={searchTerm}
         onStationChange={setSelectedStationId}
@@ -260,27 +318,94 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
         onCourseChange={setSelectedCourse}
         onConsolidationChange={() => {}}
         onAtelierChange={setSelectedAtelier}
-        onModalityChange={setSelectedModality}
+        onAtelierTypeChange={setSelectedAtelierType}
         onAcademicLevelChange={setSelectedAcademicLevel}
         onSearchChange={setSearchTerm}
       />
 
       {studentsWithResults.length > 0 ? (
-        <GradesTable
-          station={currentStation}
-          students={studentsWithResults}
-          selectedSubjectId={selectedSubjectId}
-          selectedCourse={selectedCourse}
-          getGradeValue={getGradeValue}
-          getLevelingValue={getLevelingValue}
-          onGradeChange={handleGradeChange}
-          onLevelingChange={handleLevelingChange}
-          collapsedMoments={collapsedMoments}
-          onToggleMoment={toggleMoment}
-          isEditable={isEditable}
-          onToggleSkill={toggleSkillSelection}
-          getSkillSelectionsForStudent={getSkillSelectionsForStudent}
-        />
+        <>
+          <GradesTable
+            station={currentStation}
+            students={studentsWithResults}
+            selectedSubjectId={selectedSubjectId}
+            selectedCourse={selectedCourse}
+            getGradeValue={getGradeValue}
+            getLevelingValue={getLevelingValue}
+            onGradeChange={handleGradeChange}
+            onLevelingChange={handleLevelingChange}
+            collapsedMoments={collapsedMoments}
+            onToggleMoment={toggleMoment}
+            isEditable={isEditable}
+            onToggleSkill={toggleSkillSelection}
+            getSkillSelectionsForStudent={getSkillSelectionsForStudent}
+          />
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="mt-12 flex flex-col items-center gap-6 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-8">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => {
+                    setCurrentPage(currentPage - 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="group flex items-center gap-3 px-8 py-4 bg-slate-50 hover:bg-slate-900 hover:text-white disabled:opacity-20 disabled:hover:bg-slate-50 disabled:hover:text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all disabled:cursor-not-allowed"
+                >
+                  <X size={14} className="rotate-90 group-hover:-translate-x-1 transition-transform" /> Anterior
+                </button>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex -space-x-2">
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      // Mostrar un rango de páginas alrededor de la actual
+                      let pageNum = currentPage;
+                      if (currentPage <= 3) pageNum = i + 1;
+                      else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                      else pageNum = currentPage - 2 + i;
+
+                      if (pageNum <= 0 || pageNum > totalPages) return null;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => {
+                            setCurrentPage(pageNum);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black transition-all border-2 ${
+                            currentPage === pageNum
+                              ? 'bg-primary border-primary text-white shadow-lg scale-110 z-10'
+                              : 'bg-white border-transparent text-slate-400 hover:border-slate-100 hover:text-slate-600'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {totalPages > 5 && <span className="text-slate-300 font-black">...</span>}
+                </div>
+
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => {
+                    setCurrentPage(currentPage + 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="group flex items-center gap-3 px-8 py-4 bg-slate-900 text-white hover:bg-primary disabled:opacity-20 disabled:hover:bg-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all disabled:cursor-not-allowed shadow-xl"
+                >
+                  Siguiente <X size={14} className="-rotate-90 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+              
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Mostrando <span className="text-slate-900">{(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalStudents)}</span> de <span className="text-slate-900">{totalStudents}</span> estudiantes
+              </p>
+            </div>
+          )}
+        </>
       ) : (
         <div className="mt-10 text-center py-24 bg-white rounded-[3.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center">
           <div className="w-20 h-20 bg-slate-50 text-slate-200 rounded-full flex items-center justify-center mb-6">

@@ -17,6 +17,7 @@ interface FinalReportTabProps {
   allGrades: GradeEntry[];
   allComments: StudentComment[];
   skillSelections: SkillSelection[];
+  fetchStudentData: (studentId: string) => Promise<void>;
 }
 
 export const FinalReportTab: React.FC<FinalReportTabProps> = ({ 
@@ -26,9 +27,17 @@ export const FinalReportTab: React.FC<FinalReportTabProps> = ({
   setSearchTerm,
   allGrades,
   allComments,
-  skillSelections
+  skillSelections,
+  fetchStudentData
 }) => {
   const [previewStudent, setPreviewStudent] = useState<any | null>(null);
+
+  const handlePreview = async (student: Student) => {
+    setPreviewStudent(student);
+    if (student.id) {
+      await fetchStudentData(student.id);
+    }
+  };
 
   const finalValidation = useMemo(() => {
     if (!schoolYear) return [];
@@ -128,7 +137,7 @@ export const FinalReportTab: React.FC<FinalReportTabProps> = ({
 
               <div className="flex items-center gap-4">
                 <button 
-                  onClick={() => setPreviewStudent(item.student)}
+                  onClick={() => handlePreview(item.student)}
                   className="p-4 bg-white border border-slate-100 text-slate-400 hover:text-primary hover:border-primary/20 rounded-2xl transition-all shadow-sm"
                   title="Vista Previa de Certificado"
                 >

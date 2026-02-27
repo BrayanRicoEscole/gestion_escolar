@@ -1,17 +1,19 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useStudentFilters } from './hooks/useStudentFilters';
+import { useRetiredStudentsManagement } from './hooks/useRetiredStudentsManagement';
 import { Student } from '../../types';
 import { getRetiredStudents } from '../../services/api';
 import { StudentsFilters } from './components/StudentsFilters';
 import { StudentsTable } from './components/StudentsTable';
 import { StudentModal } from './components/StudentModal';
-import { UserX, Info } from 'lucide-react';
+import { UserX, Info, Download, Upload, FileDown, Loader2 } from 'lucide-react';
 
 export const RetiredStudentsModule: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Added selection state required by StudentsTable
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -28,11 +30,21 @@ export const RetiredStudentsModule: React.FC = () => {
     }
   };
 
+  const { isProcessing, exportRetiredToCsv, importRetiredFromCsv, downloadImportTemplate } = useRetiredStudentsManagement(fetchRetired);
+
   useEffect(() => {
     fetchRetired();
   }, []);
 
   const { filtered, filters, setters } = useStudentFilters(students);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      importRetiredFromCsv(file);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Added selection handlers required by StudentsTable
   const toggleSelect = (id: string) => {
@@ -57,11 +69,43 @@ export const RetiredStudentsModule: React.FC = () => {
           <p className="text-slate-500 font-medium mt-2">Consulta expedientes históricos y trazabilidad de ex-seeds</p>
         </div>
         
-        <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-4 max-w-md">
-           <Info size={20} className="text-amber-500 shrink-0" />
-           <p className="text-[11px] font-bold text-amber-700 leading-tight">
-             Esta vista muestra estudiantes cuyo estado actual no es "Activo". Puedes consultar sus reportes históricos desde su ficha personal.
-           </p>
+        <div className="flex flex-col gap-4 items-end">
+          <div className="flex gap-2">
+            <button
+              onClick={downloadImportTemplate}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <FileDown size={14} /> Plantilla
+            </button>
+            <button
+              onClick={() => exportRetiredToCsv(filtered)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <Download size={14} /> Exportar
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg disabled:opacity-50"
+            >
+              {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              Importar
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".csv"
+              className="hidden"
+            />
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-4 max-w-md">
+             <Info size={20} className="text-amber-500 shrink-0" />
+             <p className="text-[11px] font-bold text-amber-700 leading-tight">
+               Esta vista muestra estudiantes cuyo estado actual no es "Activo". Puedes consultar sus reportes históricos desde su ficha personal.
+             </p>
+          </div>
         </div>
       </header>
 

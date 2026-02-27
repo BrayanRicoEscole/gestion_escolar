@@ -24,7 +24,7 @@ const GlobalLearningReport: React.FC<Props> = ({
   skillSelections
 }) => {
   return(
-  <div className="min-h-screen bg-muted/50 py-8 px-4 flex flex-col items-center gap-8">
+  <div className="min-h-screen bg-white py-8 px-4 flex flex-col items-center gap-8">
     <CoverPage />
     <StudentInfoPage 
       student={student}

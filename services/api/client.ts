@@ -40,5 +40,6 @@ export const supabase = createClient(URL, KEY, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storageKey: 'edugrade-auth',
   },
 });

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Station } from '../../../../types';
+import { Station } from '../../../../../../types';
 import { TableHeader } from './TableHeader';
 import { StudentRow } from './StudentRow';
 

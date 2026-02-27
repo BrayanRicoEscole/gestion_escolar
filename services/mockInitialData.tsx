@@ -50,8 +50,8 @@ export const MOCK_INITIAL_MOMENTS: LearningMoment[] = [
 ];
 
 export const MOCK_INITIAL_SUBJECTS: Subject[] = [
-  { id: SUB1_ID, name: 'Lenguaje', area: Area.CLEPE, lab: Lab.CLEPE, courses: ['C1-C', 'D2-M'], modalities: [], levels: [] },
-  { id: mockUuid('d001', 2), name: 'Matemáticas', area: Area.STEAM, lab: Lab.MEC, courses: ['C1-C', 'C1-M'], modalities: [], levels: [] },
+  { id: SUB1_ID, name: 'Lenguaje', area: Area.CLEPE, lab: Lab.CLEPE, courses: ['C1-C', 'D2-M'], ateliers: [], levels: [] },
+  { id: mockUuid('d001', 2), name: 'Matemáticas', area: Area.STEAM, lab: Lab.MEC, courses: ['C1-C', 'C1-M'], ateliers: [], levels: [] },
 ];
 
 export const MOCK_INITIAL_SCHOOL_YEAR: SchoolYear = {

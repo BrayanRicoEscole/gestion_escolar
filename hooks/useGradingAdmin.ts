@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { SchoolYear, CommentTemplate, Subject, Section, GradeSlot, LearningMoment, Station } from '../types';
+import { SchoolYear, CommentTemplate, Subject, Section, GradeSlot, LearningMoment, Station, GradingType } from '../types';
 import { getSchoolYear, getCommentTemplates, updateSchoolYear, saveCommentTemplates, getSchoolYearsList } from '../services/api';
 import { parseYearCsv } from '../modules/Grading/utils/YearCsvService';
 
@@ -167,16 +167,26 @@ export const useGradingAdmin = () => {
     if (!schoolYear) return;
     setIsSaving(true);
     try {
-      await Promise.all([
-        updateSchoolYear(schoolYear),
-        saveCommentTemplates(commentTemplates)
-      ]);
+      console.log("[useGradingAdmin] Iniciando sincronización completa...");
+      
+      await updateSchoolYear(schoolYear);
+      await saveCommentTemplates(commentTemplates);
+      
+      console.log("[useGradingAdmin] Estructura guardada. Recargando datos para sincronizar IDs...");
+      
+      // Recargar datos para obtener los IDs generados por la BD
+      const updatedData = await getSchoolYear(schoolYear.id);
+      setSchoolYear(updatedData);
+      
+      const updatedTemplates = await getCommentTemplates(schoolYear.id);
+      setCommentTemplates(updatedTemplates);
+
       setSaveSuccess(true);
-      await fetchYearsList(); // Actualizar lista tras guardar
+      await fetchYearsList(); 
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Error saving structure:", error);
-      alert("Error al guardar la estructura.");
+      alert("Error al guardar la estructura: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsSaving(false);
     }
@@ -240,7 +250,23 @@ export const useGradingAdmin = () => {
       if (!station) return next;
       const moment = station.moments[selectedMomentIdx];
       if (!moment) return next;
-      moment.sections.push({ id: crypto.randomUUID(), name: 'Nueva Sección', weight: 0, gradeSlots: [] });
+      moment.sections.push({ id: crypto.randomUUID(), name: 'Nueva Sección', weight: 0, gradeSlots: [], grading_type: 'weighted' });
+      return next;
+    });
+  };
+
+  const updateSectionGradingType = (type: GradingType) => {
+    if (!schoolYear) return;
+    setSchoolYear(prev => {
+      if (!prev) return prev;
+      const next = JSON.parse(JSON.stringify(prev)) as SchoolYear;
+      const station = next.stations[selectedStationIdx];
+      if (!station) return next;
+      const moment = station.moments[selectedMomentIdx];
+      if (!moment) return next;
+      const section = moment.sections[selectedSectionIdx];
+      if (!section) return next;
+      section.grading_type = type;
       return next;
     });
   };
@@ -320,12 +346,45 @@ export const useGradingAdmin = () => {
     moveSubject,
     toggleCourse,
     addSection,
+    updateSectionGradingType,
     addGradeSlot,
     moveGradeSlot,
     addStation,
     removeStation,
     addMoment,
     removeMoment,
-    validations: { stationTotal: schoolYear?.stations.reduce((acc, s) => acc + (s.weight || 0), 0) || 0, momentTotal: schoolYear?.stations[selectedStationIdx]?.moments.reduce((acc, m) => acc + (m.weight || 0), 0) || 0, sectionTotal: schoolYear?.stations[selectedStationIdx]?.moments[selectedMomentIdx]?.sections.reduce((acc, s) => acc + (s.weight || 0), 0) || 0, gradeTotal: schoolYear?.stations[selectedStationIdx]?.moments[selectedMomentIdx]?.sections[selectedSectionIdx]?.gradeSlots.reduce((acc, g) => acc + (g.weight || 0), 0) || 0 }
+    copyStationStructure: (sourceIdx: number, targetIdx: number) => {
+      if (!schoolYear) return;
+      setSchoolYear(prev => {
+        if (!prev) return prev;
+        const next = JSON.parse(JSON.stringify(prev)) as SchoolYear;
+        const sourceStation = next.stations[sourceIdx];
+        const targetStation = next.stations[targetIdx];
+        if (!sourceStation || !targetStation) return next;
+
+        // Copia profunda de momentos con nuevos IDs para evitar colisiones
+        const copiedMoments = sourceStation.moments.map(m => ({
+          ...m,
+          id: crypto.randomUUID(),
+          sections: m.sections.map(s => ({
+            ...s,
+            id: crypto.randomUUID(),
+            gradeSlots: s.gradeSlots.map(gs => ({
+              ...gs,
+              id: crypto.randomUUID()
+            }))
+          }))
+        }));
+
+        targetStation.moments = copiedMoments;
+        return next;
+      });
+    },
+    validations: { 
+      stationTotal: schoolYear?.stations.reduce((acc, s) => acc + (s.weight || 0), 0) || 0, 
+      momentTotal: schoolYear?.stations[selectedStationIdx]?.moments.reduce((acc, m) => acc + (m.weight || 0), 0) || 0, 
+      sectionTotal: schoolYear?.stations[selectedStationIdx]?.moments[selectedMomentIdx]?.sections.reduce((acc, s) => acc + (s.weight || 0), 0) || 0, 
+      gradeTotal: schoolYear?.stations[selectedStationIdx]?.moments[selectedMomentIdx]?.sections[selectedSectionIdx]?.gradeSlots.reduce((acc, g) => acc + (g.weight || 0), 0) || 0 
+    }
   };
 };

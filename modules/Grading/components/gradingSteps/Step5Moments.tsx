@@ -1,6 +1,6 @@
 
-import React from 'react';
-import {ChevronRight, GripVertical, PlusCircle, Trash2} from 'lucide-react'
+import React, { useState } from 'react';
+import {ChevronRight, GripVertical, PlusCircle, Trash2, Copy, Check} from 'lucide-react'
 import { SchoolYear } from '../../../../types';
 import { WeightBadge } from './WeightBadge';
 
@@ -12,10 +12,24 @@ interface Props {
   total: number;
   onAdd: () => void;
   onRemove: (idx: number) => void;
+  onCopyFrom: (sourceIdx: number) => void;
 }
 
-export const Step5Moments: React.FC<Props> = ({ year, setYear, stationIdx, onSelectStation, total, onAdd, onRemove }) => {
+export const Step5Moments: React.FC<Props> = ({ 
+  year, 
+  setYear, 
+  stationIdx, 
+  onSelectStation, 
+  total, 
+  onAdd, 
+  onRemove,
+  onCopyFrom
+}) => {
   const currentStation = year.stations[stationIdx];
+  const [showCopyMenu, setShowCopyMenu] = useState(false);
+
+  const otherStations = year.stations.filter((_, i) => i !== stationIdx && _.moments.length > 0);
+
   return (
     <div className="flex flex-col md:flex-row gap-8 animate-in slide-in-from-right-4 duration-300">
       <div className="w-full md:w-1/3 space-y-3">
@@ -37,14 +51,47 @@ export const Step5Moments: React.FC<Props> = ({ year, setYear, stationIdx, onSel
               <WeightBadge total={total} />
             </div>
           </div>
-          <button 
-            onClick={onAdd}
-            disabled={!currentStation}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs hover:bg-slate-800 transition-all shadow-xl active:scale-95 disabled:opacity-30"
-          >
-            <PlusCircle size={18} />
-            Nuevo Momento
-          </button>
+          <div className="flex items-center gap-2">
+            {otherStations.length > 0 && (
+              <div className="relative">
+                <button 
+                  onClick={() => setShowCopyMenu(!showCopyMenu)}
+                  className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                >
+                  <Copy size={18} />
+                  Copiar Estructura
+                </button>
+                
+                {showCopyMenu && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 p-2 animate-in zoom-in-95 duration-200">
+                    <p className="p-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-bottom border-slate-50">Seleccionar origen:</p>
+                    {otherStations.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          const idx = year.stations.findIndex(st => st.id === s.id);
+                          onCopyFrom(idx);
+                          setShowCopyMenu(false);
+                        }}
+                        className="w-full p-4 text-left hover:bg-slate-50 rounded-xl transition-all flex items-center justify-between group"
+                      >
+                        <span className="font-bold text-slate-700 text-xs">{s.name}</span>
+                        <ChevronRight size={14} className="text-slate-300 group-hover:text-primary" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <button 
+              onClick={onAdd}
+              disabled={!currentStation}
+              className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs hover:bg-slate-800 transition-all shadow-xl active:scale-95 disabled:opacity-30"
+            >
+              <PlusCircle size={18} />
+              Nuevo Momento
+            </button>
+          </div>
         </div>
         <div className="space-y-4">
           {currentStation?.moments.map((m, mi) => (

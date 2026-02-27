@@ -3,6 +3,7 @@ import { GraduationCap } from 'lucide-react'
 
 interface LoginScreenProps {
   signIn: ()=> void
+
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({signIn}) => {

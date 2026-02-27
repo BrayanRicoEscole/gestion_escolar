@@ -17,7 +17,7 @@ interface GradingFiltersProps {
   selectedCourse: string;
   consolidationFilter: ConsolidationStatus;
   selectedAtelier: string;
-  selectedModality: string;
+  selectedAtelierType: string;
   selectedAcademicLevel: string;
   searchTerm: string;
   onStationChange: (value: string) => void;
@@ -25,7 +25,7 @@ interface GradingFiltersProps {
   onCourseChange: (value: string) => void;
   onConsolidationChange: (value: ConsolidationStatus) => void;
   onAtelierChange: (value: string) => void;
-  onModalityChange: (value: string) => void;
+  onAtelierTypeChange: (value: string) => void;
   onAcademicLevelChange: (value: string) => void;
   onSearchChange: (value: string) => void;
 }
@@ -41,7 +41,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
   selectedCourse,
   consolidationFilter,
   selectedAtelier,
-  selectedModality,
+  selectedAtelierType,
   selectedAcademicLevel,
   searchTerm,
   onStationChange,
@@ -49,7 +49,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
   onCourseChange,
   onConsolidationChange,
   onAtelierChange,
-  onModalityChange,
+  onAtelierTypeChange,
   onAcademicLevelChange,
   onSearchChange
 }) => {
@@ -59,19 +59,19 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
 
   const currentSubjectCourses = useMemo(() => currentSubject?.courses || [], [currentSubject]);
 
-  const { availableLevels, availableModalities } = useMemo(() => {
+  const { availableLevels, availableAtelierTypes } = useMemo(() => {
     const levels = new Set<string>();
-    const modalities = new Set<string>();
+    const atelierTypes = new Set<string>();
     
     currentSubjectCourses.forEach(course => {
       const [lvl, suffix] = course.split('-');
       levels.add(lvl);
-      modalities.add(suffix === 'M' ? 'RS' : 'RC');
+      atelierTypes.add(suffix);
     });
 
     return {
       availableLevels: Array.from(levels).sort(),
-      availableModalities: Array.from(modalities)
+      availableAtelierTypes: Array.from(atelierTypes)
     };
   }, [currentSubjectCourses]);
 
@@ -190,16 +190,18 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
 
           <div className="flex flex-col gap-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter flex items-center gap-1">
-              <Home size={10} /> Modalidad
+              <Home size={10} /> Tipo Atelier
             </label>
             <select
-              value={selectedModality}
-              onChange={e => onModalityChange(e.target.value)}
+              value={selectedAtelierType}
+              onChange={e => onAtelierTypeChange(e.target.value)}
               className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              <option value="all">Todas las permitidas</option>
-              {availableModalities.includes('RS') && <option value="RS">Renfort Sede (RS)</option>}
-              {availableModalities.includes('RC') && <option value="RC">Renfort Casa (RC)</option>}
+              <option value="all">Todos los tipos</option>
+              {availableAtelierTypes.includes('A') && <option value="A">Alhambra (A)</option>}
+              {availableAtelierTypes.includes('C') && <option value="C">Casa (C)</option>}
+              {availableAtelierTypes.includes('MS') && <option value="MS">Mandalay (MS)</option>}
+              {availableAtelierTypes.includes('M') && <option value="M">Mónaco (M)</option>}
             </select>
           </div>
 

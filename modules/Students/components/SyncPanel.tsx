@@ -14,6 +14,7 @@ import { Button } from '../../../components/ui/Button';
 export interface SyncStatus {
   type: 'success' | 'error';
   message: string;
+  details?: string[];
 }
 
 interface Props {
@@ -52,20 +53,29 @@ export const SyncPanel: React.FC<Props> = ({
           </p>
 
           {status && (
-            <div
-              className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-tight
-                ${
-                  status.type === 'success'
-                    ? 'text-green-600'
-                    : 'text-rose-600'
-                }`}
-            >
-              {status.type === 'success' ? (
-                <CheckCircle size={14} />
-              ) : (
-                <AlertCircle size={14} />
+            <div className="space-y-1">
+              <div
+                className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-tight
+                  ${
+                    status.type === 'success'
+                      ? 'text-green-600'
+                      : 'text-rose-600'
+                  }`}
+              >
+                {status.type === 'success' ? (
+                  <CheckCircle size={14} />
+                ) : (
+                  <AlertCircle size={14} />
+                )}
+                {status.message}
+              </div>
+              {status.details && status.details.length > 0 && (
+                <ul className="text-[9px] text-rose-500 font-bold list-disc pl-4">
+                  {status.details.map((detail, idx) => (
+                    <li key={idx}>{detail}</li>
+                  ))}
+                </ul>
               )}
-              {status.message}
             </div>
           )}
         </div>
