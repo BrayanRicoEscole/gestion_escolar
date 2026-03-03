@@ -155,3 +155,70 @@ export const updateAcademicRecord = async (recordId: string, data: Partial<Acade
   if (error) throw error;
   return true;
 };
+
+/**
+ * Obtiene todos los registros académicos con filtros opcionales
+ */
+export const getAllAcademicRecords = async (filters?: {
+  schoolYearId?: string;
+  academicLevel?: string;
+  atelier?: string;
+  status?: string;
+}): Promise<AcademicRecord[]> => {
+  let query = supabase
+    .from('student_academic_records')
+    .select(`*, school_years (name), students (full_name, document)`)
+    .order('created_at', { ascending: false });
+
+  if (filters?.schoolYearId) query = query.eq('school_year_id', filters.schoolYearId);
+  if (filters?.academicLevel) query = query.eq('academic_level', filters.academicLevel);
+  if (filters?.atelier) query = query.eq('atelier', filters.atelier);
+  if (filters?.status) query = query.eq('status', filters.status);
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  return (data || []).map(r => ({
+    id: r.id,
+    student_id: r.student_id,
+    student_name: r.students?.full_name || 'N/A',
+    student_document: r.students?.document || 'N/A',
+    school_year_id: r.school_year_id,
+    school_year_name: r.school_years?.name || 'N/A',
+    grade: r.grade,
+    academic_level: r.academic_level,
+    atelier: r.atelier,
+    modality: r.modality,
+    status: r.status,
+    observations: r.observations,
+    start_date: r.start_date,
+    end_date: r.end_date,
+    created_at: r.created_at
+  }));
+};
+
+/**
+ * Importación masiva de registros académicos desde CSV
+ */
+export const syncAcademicRecordsFromCSV = async (records: any[]) => {
+  const toUpsert = records.map(r => ({
+    student_id: r.student_id,
+    school_year_id: r.school_year_id,
+    grade: r.grade,
+    academic_level: r.academic_level,
+    atelier: r.atelier,
+    modality: r.modality,
+    status: r.status,
+    observations: r.observations,
+    start_date: r.start_date,
+    end_date: r.end_date
+  }));
+
+  const { error } = await supabase
+    .from('student_academic_records')
+    .upsert(toUpsert, { onConflict: 'student_id,school_year_id' });
+
+  if (error) throw error;
+  return true;
+};

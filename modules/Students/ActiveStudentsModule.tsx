@@ -103,6 +103,20 @@ export const ActiveStudentsModule: React.FC = () => {
     setTimeout(() => setActionSuccess(null), 4000);
   };
 
+  const handleDownloadMissing = () => {
+    const importantFields: (keyof Student)[] = [
+      'academic_level', 'grade', 'atelier', 'modality', 'calendario',
+      'tl', 'cuenta_institucional', 'nacimiento', 'rh', 'acudiente_academico',
+      'telefono_a', 'correo_a', 'acudiente_financiero', 'telefono_financiero'
+    ];
+    const missing = students.filter(s => importantFields.some(field => !s[field]));
+    if (missing.length === 0) {
+      alert("No hay estudiantes con campos faltantes.");
+      return;
+    }
+    exportStudentsToCSV(missing);
+  };
+
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500 pb-40">
       
@@ -119,6 +133,12 @@ export const ActiveStudentsModule: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button 
+            onClick={handleDownloadMissing}
+            className="flex items-center gap-2 px-6 py-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-amber-100 shadow-sm"
+          >
+            <AlertCircle size={14} /> Descargar Faltantes
+          </button>
           <button 
             onClick={() => exportStudentsToCSV(students)}
             className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 shadow-sm"

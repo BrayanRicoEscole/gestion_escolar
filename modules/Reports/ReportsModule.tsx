@@ -33,6 +33,10 @@ export const ReportsModule: React.FC = () => {
     setSelectedLevelGroup,
     selectedAtelier,
     setSelectedAtelier,
+    selectedAcademicLevel,
+    setSelectedAcademicLevel,
+    selectedCalendar,
+    setSelectedCalendar,
     selectedStationId,
     setSelectedStationId,
     searchTerm,
@@ -40,7 +44,12 @@ export const ReportsModule: React.FC = () => {
     grades,
     allComments,
     skillSelections,
-    fetchStudentData
+    showIncompleteOnly,
+    setShowIncompleteOnly,
+    selectedStations,
+    setSelectedStations,
+    fetchStudentData,
+    fetchYearStudentData
   } = useReportsData();
 
   if (isLoading && allYears.length === 0) {
@@ -176,6 +185,8 @@ export const ReportsModule: React.FC = () => {
               allComments={allComments}
               skillSelections={skillSelections}
               fetchStudentData={fetchStudentData}
+              showIncompleteOnly={showIncompleteOnly}
+              setShowIncompleteOnly={setShowIncompleteOnly}
             />
           )}
 
@@ -188,7 +199,11 @@ export const ReportsModule: React.FC = () => {
               allGrades={grades}
               allComments={allComments}
               skillSelections={skillSelections}
-              fetchStudentData={fetchStudentData}
+              fetchYearStudentData={fetchYearStudentData}
+              selectedCalendar={selectedCalendar}
+              setSelectedCalendar={setSelectedCalendar}
+              selectedStations={selectedStations}
+              setSelectedStations={setSelectedStations}
             />
           )}
 

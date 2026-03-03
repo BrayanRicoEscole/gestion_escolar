@@ -31,6 +31,8 @@ export const getEnrolledStudents = async (schoolYearId: string): Promise<Student
       atelier,
       modality,
       status,
+      start_date,
+      end_date,
       students:student_id (*)
     `)
     .eq('school_year_id', schoolYearId);
@@ -44,7 +46,9 @@ export const getEnrolledStudents = async (schoolYearId: string): Promise<Student
       grade: item.grade || item.students.grade,
       academic_level: item.academic_level || item.students.academic_level,
       atelier: item.atelier || item.students.atelier,
-      modality: item.modality || item.students.modality
+      modality: item.modality || item.students.modality,
+      start_date: item.start_date,
+      end_date: item.end_date
     }));
 };
 
@@ -289,31 +293,22 @@ export const syncStudentsFromSpreadsheet = async (
     });
     const uniqueMapped = Array.from(uniqueMap.values());
 
-    // 3. Obtener documentos existentes para filtrar
-    const documentsInCsv = uniqueMapped.map(s => s.document);
-    const { data: existing, error: fetchError } = await supabase
-      .from('students')
-      .select('document')
-      .in('document', documentsInCsv);
-    
-    if (fetchError) throw fetchError;
-    
-    const existingDocs = new Set(existing?.map(e => String(e.document)) || []);
-    
-    // 4. Filtrar solo los que NO existen
-    const toInsert = uniqueMapped
-      .filter(s => !existingDocs.has(s.document))
-      .map(s => ({ ...s, id: crypto.randomUUID() }));
-
-    const skippedCount = mapped.length - toInsert.length;
+    // 3. Procesar todos los estudiantes del CSV (Nuevos y Existentes)
+    const toUpsert = uniqueMapped.map(s => ({
+      ...s,
+      // No asignamos un nuevo UUID si ya existe, pero Supabase upsert por documento lo manejará
+      // Si es nuevo, necesita un ID. Si ya existe, el documento es la clave.
+      // Para estar seguros de que los nuevos tengan ID:
+      id: s.id || crypto.randomUUID() 
+    }));
 
     let successCount = 0;
     let errorCount = 0;
     const errorDetails: string[] = [];
 
-    if (toInsert.length > 0) {
-      for (const chunk of chunkArray(toInsert, 50)) {
-        // Usamos upsert con onConflict por seguridad adicional
+    if (toUpsert.length > 0) {
+      for (const chunk of chunkArray(toUpsert, 50)) {
+        // Usamos upsert con onConflict: 'document' para actualizar si ya existe
         const { error } = await supabase
           .from('students')
           .upsert(chunk, { onConflict: 'document' });
@@ -328,7 +323,7 @@ export const syncStudentsFromSpreadsheet = async (
       }
     }
 
-    return { success: successCount, errors: errorCount, skipped: skippedCount, errorDetails };
+    return { success: successCount, errors: errorCount, skipped: 0, errorDetails };
   } catch (e: any) {
     console.error("Fallo crítico en sincronización:", e);
     throw e;

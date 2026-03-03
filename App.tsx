@@ -4,7 +4,7 @@ import {
   GraduationCap, Users, Settings, LayoutDashboard,
   Menu, X, ChevronRight, AlertCircle, UserCircle, ShieldCheck, MessageSquareText, FileText,
   LogOut, Loader2, FlaskConical, ClipboardList, UserX, UserCog, ShieldAlert, Terminal,
-  Sliders
+  Sliders, History
 } from 'lucide-react';
 import { UserProfile, UserRole } from './types';
 import { useAuth } from './context/AuthContext';
@@ -16,12 +16,13 @@ import TeacherCommentsView from './modules/Comments/TeacherCommentsView';
 import { ActiveStudentsModule } from './modules/Students/ActiveStudentsModule';
 import { RetiredStudentsModule } from './modules/Students/RetiredStudentsModule';
 import { ReportsModule } from './modules/Reports/ReportsModule';
+import { AcademicRecordsModule } from './modules/Students/AcademicRecordsModule';
 import { DashboardModule } from './modules/Dashboard/DashboardModule';
 import { UserManagementModule } from './modules/Users/UserManagementModule';
 import { FullScreenLoader } from './components/FullScreenLoader'
 import { LoginScreen } from './components/LoginScreen'
 
-type Module = 'dashboard' | 'admissions' | 'active_students' | 'retired_students' | 'reports' | 'grading' | 'grading_setup' | 'comments' | 'users';
+type Module = 'dashboard' | 'admissions' | 'active_students' | 'retired_students' | 'academic_records' | 'reports' | 'grading' | 'grading_setup' | 'comments' | 'users';
 
 const App: React.FC = () => {
   const {
@@ -67,6 +68,7 @@ const App: React.FC = () => {
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, visible: isSupport },
     { id: 'active_students', name: 'Estudiantes', icon: Users, visible: isSupport },
     { id: 'retired_students', name: 'Retirados', icon: UserX, visible: isSupport },
+    { id: 'academic_records', name: 'Configuración periodo académico', icon: History, visible: isSupport },
     { id: 'grading', name: 'Calificaciones', icon: ClipboardList, visible: true },
     { id: 'grading_setup', name: 'Configuración', icon: Sliders, visible: isSupport },
     { id: 'comments', name: 'Comentarios', icon: MessageSquareText, visible: true },
@@ -80,6 +82,7 @@ const App: React.FC = () => {
       case 'dashboard': return <DashboardModule />;
       case 'active_students': return <ActiveStudentsModule />;
       case 'retired_students': return <RetiredStudentsModule />;
+      case 'academic_records': return <AcademicRecordsModule />;
       case 'grading': return <TeacherGradingView userRole={profile.role} />;
       case 'grading_setup': return <GradingModule />;
       case 'comments': return <TeacherCommentsView userRole={profile.role} />;

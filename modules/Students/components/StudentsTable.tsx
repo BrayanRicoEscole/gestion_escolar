@@ -44,6 +44,8 @@ export const StudentsTable: React.FC<Props> = ({
               <Th>Seed / Estudiante</Th>
               <Th>Documento ID</Th>
               <Th>Grupo Académico</Th>
+              <Th>TL</Th>
+              <Th>Cuenta Institucional</Th>
               <Th>Ubicación / Modalidad</Th>
               <Th align="center">Estado</Th>
               <Th align="right">Acciones</Th>
@@ -160,6 +162,14 @@ const StudentRow: React.FC<{
             Grado {student.grade || '—'}
           </span>
         </div>
+      </td>
+
+      <td className="px-6 py-5 text-xs font-bold text-slate-600">
+        {student.tl || '—'}
+      </td>
+
+      <td className="px-6 py-5 text-xs font-bold text-slate-400">
+        {student.cuenta_institucional || '—'}
       </td>
 
       <td className="px-6 py-5">

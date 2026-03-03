@@ -67,6 +67,26 @@ export const EditHistoryForm: React.FC<Props> = ({ record, onClose, onSuccess })
             </div>
           </div>
 
+          <div className="grid grid-cols-5 gap-4 py-4 border-y border-slate-100">
+            {[
+              { key: 'spring_sent', label: 'Spring' },
+              { key: 'winter_sent', label: 'Winter' },
+              { key: 'autumn_sent', label: 'Autumn' },
+              { key: 'summer_sent', label: 'Summer' },
+              { key: 'final_report_sent', label: 'Final' }
+            ].map(report => (
+              <label key={report.key} className="flex flex-col items-center gap-2 cursor-pointer group">
+                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-primary transition-colors">{report.label}</span>
+                <input 
+                  type="checkbox" 
+                  checked={!!(formData as any)[report.key]} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, [report.key]: e.target.checked }))}
+                  className="w-6 h-6 rounded-lg border-2 border-slate-200 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                />
+              </label>
+            ))}
+          </div>
+
           <div>
             <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Observaciones</label>
             <textarea name="observations" value={formData.observations || ''} onChange={handleChange} className="w-full p-5 bg-slate-50 border-none rounded-2xl font-medium text-sm text-black focus:ring-4 focus:ring-primary/10 resize-none h-32 outline-none" />

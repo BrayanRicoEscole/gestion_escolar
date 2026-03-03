@@ -24,6 +24,8 @@ interface ValidationTabProps {
   allComments: StudentComment[];
   skillSelections: SkillSelection[];
   fetchStudentData: (studentId: string) => Promise<void>;
+  showIncompleteOnly: boolean;
+  setShowIncompleteOnly: (val: boolean) => void;
 }
 
 export const ValidationTab: React.FC<ValidationTabProps> = ({
@@ -37,7 +39,9 @@ export const ValidationTab: React.FC<ValidationTabProps> = ({
   allGrades,
   allComments,
   skillSelections,
-  fetchStudentData
+  fetchStudentData,
+  showIncompleteOnly,
+  setShowIncompleteOnly
 }) => {
   const [previewStudent, setPreviewStudent] = useState<any | null>(null);
   const [isBulkSending, setIsBulkSending] = useState(false);
@@ -155,6 +159,19 @@ export const ValidationTab: React.FC<ValidationTabProps> = ({
           />
         </div>
 
+        <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+          <input 
+            type="checkbox" 
+            id="incomplete-filter"
+            checked={showIncompleteOnly}
+            onChange={(e) => setShowIncompleteOnly(e.target.checked)}
+            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
+          />
+          <label htmlFor="incomplete-filter" className="text-[10px] font-black text-slate-500 uppercase cursor-pointer select-none">
+            Ver solo incompletos
+          </label>
+        </div>
+
         <div className="ml-auto flex items-center gap-4">
           <div className="text-right">
             <p className="text-[10px] font-black text-slate-400 uppercase">Estación Finaliza</p>
@@ -176,7 +193,8 @@ export const ValidationTab: React.FC<ValidationTabProps> = ({
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
               <th className="px-8 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Seed / Estudiante</th>
-              <th className="px-6 py-5 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas ({currentStation?.name})</th>
+              <th className="px-6 py-5 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Progreso Global</th>
+              <th className="px-6 py-5 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Habilidades</th>
               <th className="px-6 py-5 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Comentarios</th>
               <th className="px-6 py-5 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Paz y Salvo</th>
               <th className="px-6 py-5 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Periodo</th>
@@ -199,11 +217,23 @@ export const ValidationTab: React.FC<ValidationTabProps> = ({
                 </td>
                 <td className="px-6 py-5">
                   <div className="flex flex-col items-center gap-1.5">
-                    <ValidationBadge isValid={validations.grades_complete} label={validations.grades_complete ? '100%' : `${Math.round(progress)}%`} />
+                    <ValidationBadge 
+                      isValid={progress === 100} 
+                      label={`${progress}%`} 
+                    />
                     <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full transition-all duration-500 ${validations.grades_complete ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${progress}%` }}></div>
+                      <div 
+                        className={`h-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-primary'}`} 
+                        style={{ width: `${progress}%` }}
+                      ></div>
                     </div>
                   </div>
+                </td>
+                <td className="px-6 py-5">
+                  <ValidationBadge 
+                    isValid={validations.skills_complete} 
+                    label={validations.skills_complete ? 'Llenas' : 'Pendiente'} 
+                  />
                 </td>
                 <td className="px-6 py-5">
                   <ValidationBadge 

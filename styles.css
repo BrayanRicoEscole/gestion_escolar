@@ -50,10 +50,10 @@ body {
   body * {
     visibility: hidden;
   }
-  #printable-report, #printable-report * {
+  #printable-report, #printable-report *, #printable-final-report, #printable-final-report * {
     visibility: visible;
   }
-  #printable-report {
+  #printable-report, #printable-final-report {
     position: absolute;
     left: 0;
     top: 0;

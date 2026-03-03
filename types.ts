@@ -106,6 +106,8 @@ export interface SchoolYear {
 export interface AcademicRecord {
   id: string;
   student_id: string;
+  student_name?: string;
+  student_document?: string;
   school_year_id: string;
   school_year_name?: string;
   grade: string;
@@ -113,7 +115,14 @@ export interface AcademicRecord {
   atelier: string;
   modality: string;
   status: string;
+  start_date?: string;
+  end_date?: string;
   observations?: string;
+  spring_sent?: boolean;
+  winter_sent?: boolean;
+  autumn_sent?: boolean;
+  summer_sent?: boolean;
+  final_report_sent?: boolean;
   created_at: string;
 }
 
@@ -146,6 +155,8 @@ export interface Student {
   estado_actual?: string;
   inicio?: string;
   fin?: string;
+  start_date?: string;
+  end_date?: string;
   tipo_id_estudiante?: string;
   cedula_a?: string;
   acudiente_academico?: string;

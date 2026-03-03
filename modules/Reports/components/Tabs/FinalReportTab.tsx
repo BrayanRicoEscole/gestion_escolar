@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Card } from '../../../../components/ui/Card';
 import { Button } from '../../../../components/ui/Button';
-import { ReportPreviewModal } from '../Preview/ReportPreviewModal';
+import { FinalReportModal } from '../Preview/FinalReportModal';
 import { Student, SchoolYear, Station, GradeEntry, StudentComment, SkillSelection } from '../../../../types';
 
 interface FinalReportTabProps {
@@ -17,7 +17,11 @@ interface FinalReportTabProps {
   allGrades: GradeEntry[];
   allComments: StudentComment[];
   skillSelections: SkillSelection[];
-  fetchStudentData: (studentId: string) => Promise<void>;
+  fetchYearStudentData: (studentId: string) => Promise<void>;
+  selectedCalendar: string;
+  setSelectedCalendar: (cal: string) => void;
+  selectedStations: string[];
+  setSelectedStations: (stations: string[]) => void;
 }
 
 export const FinalReportTab: React.FC<FinalReportTabProps> = ({ 
@@ -28,14 +32,18 @@ export const FinalReportTab: React.FC<FinalReportTabProps> = ({
   allGrades,
   allComments,
   skillSelections,
-  fetchStudentData
+  fetchYearStudentData,
+  selectedCalendar,
+  setSelectedCalendar,
+  selectedStations,
+  setSelectedStations
 }) => {
   const [previewStudent, setPreviewStudent] = useState<any | null>(null);
 
   const handlePreview = async (student: Student) => {
     setPreviewStudent(student);
     if (student.id) {
-      await fetchStudentData(student.id);
+      await fetchYearStudentData(student.id);
     }
   };
 
@@ -49,9 +57,12 @@ export const FinalReportTab: React.FC<FinalReportTabProps> = ({
       let reason = "";
 
       if (calType === 'A') {
-        stationsIncluded = schoolYear.stations.map(s => s.name);
+        stationsIncluded = schoolYear.stations
+          .filter(s => selectedStations.includes(s.id))
+          .map(s => s.name);
       } else if (calType === 'B') {
-        stationsIncluded = ["Historico 2025-W3", "Historico 2025-W4", "2026-S1", "2026-S2"];
+        stationsIncluded = ["Historico 2025-W3", "Historico 2025-W4", "2026-S1", "2026-S2"]
+          .filter(s => selectedStations.length === 0 || selectedStations.some(id => s.includes(id) || schoolYear.stations.find(st => st.id === id)?.name === s));
       } else {
         stationsIncluded = [`Rango: ${student.inicio || '—'} a ${student.fin || '—'}`];
       }
@@ -82,6 +93,59 @@ export const FinalReportTab: React.FC<FinalReportTabProps> = ({
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+      <div className="flex flex-col gap-6 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+        <div className="flex flex-wrap items-center gap-8">
+          {/* Filtro de Calendario */}
+          <div className="space-y-3">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] ml-2">Filtrar por Calendario</span>
+            <div className="flex gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100">
+              {(['all', 'A', 'B'] as const).map((cal) => (
+                <button
+                  key={cal}
+                  onClick={() => setSelectedCalendar(cal)}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    selectedCalendar === cal
+                      ? 'bg-slate-900 text-white shadow-lg scale-105'
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-white'
+                  }`}
+                >
+                  {cal === 'all' ? 'Todos' : `Calendario ${cal}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filtro de Estaciones */}
+          <div className="flex-1 space-y-3">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] ml-2">Estaciones a Incluir</span>
+            <div className="flex flex-wrap gap-2">
+              {schoolYear?.stations.map((station) => {
+                const isSelected = selectedStations.includes(station.id);
+                return (
+                  <button
+                    key={station.id}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedStations(selectedStations.filter(id => id !== station.id));
+                      } else {
+                        setSelectedStations([...selectedStations, station.id]);
+                      }
+                    }}
+                    className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border-2 transition-all ${
+                      isSelected
+                        ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                        : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+                    }`}
+                  >
+                    {station.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <header className="flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex-1 w-full max-w-md relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -167,13 +231,10 @@ export const FinalReportTab: React.FC<FinalReportTabProps> = ({
       </div>
 
       {previewStudent && (
-        <ReportPreviewModal 
+        <FinalReportModal 
           student={previewStudent}
           schoolYear={schoolYear}
-          currentStation={schoolYear?.stations[0] || null} // Usar la primera estación por defecto para el reporte final
-          grades={allGrades}
-          comment={allComments.find(c => c.studentId === previewStudent.id)}
-          skillSelections={skillSelections}
+          allGrades={allGrades}
           onClose={() => setPreviewStudent(null)}
         />
       )}

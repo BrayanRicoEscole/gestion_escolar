@@ -41,6 +41,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const [selectedAtelier, setSelectedAtelier] = useState('all')
   const [selectedAtelierType, setSelectedAtelierType] = useState('all')
   const [selectedAcademicLevel, setSelectedAcademicLevel] = useState('all')
+  const [selectedCalendar, setSelectedCalendar] = useState('all')
   const [selectedLevelGroup, setSelectedLevelGroup] = useState<'Petiné' | 'Elementary' | 'Middle' | 'Highschool'>('Petiné');
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -207,6 +208,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       const matchesAtelier = selectedAtelier === 'all' || student.atelier === selectedAtelier;
       const matchesAtelierType = selectedAtelierType === 'all' || suffix === selectedAtelierType;
       const matchesAcademicLevel = selectedAcademicLevel === 'all' || student.academic_level === selectedAcademicLevel;
+      const matchesCalendar = selectedCalendar === 'all' || (student.calendario || 'A') === selectedCalendar;
       
       let matchesLevelGroup = true;
       const groupLevels = {
@@ -222,7 +224,24 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       let matchesCourseSelection = true;
 
       if (selectedCourse) matchesCourseSelection = studentCourseCode === selectedCourse.trim().toUpperCase();
-      return matchesSearch && matchesAtelier && matchesAtelierType && matchesAcademicLevel && matchesLevelGroup && matchesCourseSelection;
+
+      // Filtrado por fechas de la estación (Solo mostrar si estuvo activo durante la estación)
+      let matchesStationPeriod = true;
+      if (currentStation) {
+        const sStart = student.start_date || '0000-01-01';
+        const sEnd = student.end_date || '9999-12-31';
+        const stStart = currentStation.startDate;
+        const stEnd = currentStation.endDate;
+
+        // El estudiante NO coincide si:
+        // 1. Empezó después de que terminó la estación
+        // 2. Se retiró antes de que empezara la estación
+        if (sStart > stEnd || sEnd < stStart) {
+          matchesStationPeriod = false;
+        }
+      }
+
+      return matchesSearch && matchesAtelier && matchesAtelierType && matchesAcademicLevel && matchesCalendar && matchesLevelGroup && matchesCourseSelection && matchesStationPeriod;
     });
 
     // Ordenar por Nivel Académico y luego por Nombre
@@ -244,6 +263,14 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const allSubjectIds = useMemo(() => {
     return currentStation?.subjects?.map(s => s.id) || [];
   }, [currentStation]);
+
+  const allYearSubjectIds = useMemo(() => {
+    const ids = new Set<string>();
+    schoolYear?.stations.forEach(st => {
+      st.subjects.forEach(sub => ids.add(sub.id));
+    });
+    return Array.from(ids);
+  }, [schoolYear]);
 
   // 3. Carga de notas y habilidades al cambiar de materia/estación o grupo de nivel
   useEffect(() => {
@@ -315,6 +342,33 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       });
     } catch (e) {
       console.error('[DB] ❌ Error cargando datos individuales:', e);
+    }
+  };
+
+  const fetchYearStudentData = async (studentId: string) => {
+    if (allYearSubjectIds.length === 0) return;
+
+    try {
+      const [gr, sk, lv] = await Promise.all([
+        getGrades(allYearSubjectIds, [studentId]),
+        getSkillSelections(allYearSubjectIds, [studentId]),
+        getLevelingGrades(allYearSubjectIds, [studentId])
+      ]);
+
+      setGrades(prev => {
+        const otherStudents = prev.filter(g => g.studentId !== studentId);
+        return [...otherStudents, ...gr];
+      });
+      setSkillSelections(prev => {
+        const otherStudents = prev.filter(s => s.studentId !== studentId);
+        return [...otherStudents, ...(sk || [])];
+      });
+      setLevelingGrades(prev => {
+        const otherStudents = prev.filter(l => l.studentId !== studentId);
+        return [...otherStudents, ...(lv || [])];
+      });
+    } catch (e) {
+      console.error('[DB] ❌ Error cargando datos anuales del estudiante:', e);
     }
   };
 
@@ -404,8 +458,8 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
     filteredStudents, paginatedStudents, totalStudents: filteredStudents.length, currentPage, setCurrentPage, pageSize, setPageSize,
     selectedStationId, setSelectedStationId, selectedSubjectId, setSelectedSubjectId,
     selectedCourse, setSelectedCourse, selectedAtelier, setSelectedAtelier, selectedAtelierType, setSelectedAtelierType,
-    selectedAcademicLevel, setSelectedAcademicLevel, selectedLevelGroup, setSelectedLevelGroup, searchTerm, setSearchTerm, isSaving, grades, skillSelections,
+    selectedAcademicLevel, setSelectedAcademicLevel, selectedCalendar, setSelectedCalendar, selectedLevelGroup, setSelectedLevelGroup, searchTerm, setSearchTerm, isSaving, grades, skillSelections,
     handleGradeChange, handleLevelingChange, getGradeValue, getLevelingValue, toggleSkillSelection, getSkillSelectionsForStudent,
-    bulkImportGradesAndSkills, fetchStudentData, handleCopyStationData
+    bulkImportGradesAndSkills, fetchStudentData, fetchYearStudentData, handleCopyStationData
   };
 };
