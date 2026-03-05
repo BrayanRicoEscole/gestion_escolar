@@ -92,7 +92,7 @@ const App: React.FC = () => {
       icon: ClipboardList,
       visible: true,
       items: [
-        { id: 'grading', name: 'Teacher Grading View', icon: ClipboardList, visible: true },
+        { id: 'grading', name: 'Notas', icon: ClipboardList, visible: true },
         { id: 'comments', name: 'Comentarios', icon: MessageSquareText, visible: true },
         { id: 'reports', name: 'Reportes', icon: FileText, visible: isSupport },
         { id: 'academic_records', name: 'Configuración Año Escolar', icon: History, visible: isSupport },
@@ -159,7 +159,7 @@ const App: React.FC = () => {
         <div className="p-6 flex items-center justify-between">
           <div className={`flex items-center gap-3 ${!sidebarOpen && 'hidden'}`}>
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg"><GraduationCap className="text-white w-6 h-6" /></div>
-            <h1 className="font-bold text-xl text-slate-800 tracking-tight text-black">Renfort (dev)</h1>
+            <h1 className="font-bold text-xl text-slate-800 tracking-tight text-black">Renfort</h1>
           </div>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400">{sidebarOpen ? <X size={20} /> : <Menu size={20} />}</button>
         </div>
