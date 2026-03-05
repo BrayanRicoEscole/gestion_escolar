@@ -255,3 +255,17 @@ export interface StudentComment {
   comentaryQuality?: number;
   aiSuggestion?: string;
 }
+
+export interface GrowerAssignment {
+  id: string;
+  grower_id: string;
+  grower_name?: string;
+  station_id: string;
+  station_name?: string;
+  subject_id: string;
+  subject_name?: string;
+  academic_level: string;
+  atelier: string;
+  course: string;
+  created_at?: string;
+}

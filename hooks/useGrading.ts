@@ -4,7 +4,8 @@ import {
   Student,
   GradeEntry,
   SkillSelection,
-  LevelingGrade
+  LevelingGrade,
+  GrowerAssignment
 } from '../types'
 import {
   getSchoolYear,
@@ -17,12 +18,13 @@ import {
   saveSkillSelections,
   getSchoolYearsList,
   processDeepGradesImport,
-  copyStationData
+  copyStationData,
+  getGrowerAssignments
 } from '../services/api'
 import { supabase } from '../services/api/client'
 
-export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolean } = {}) => {
-  const { realtime = false, subjectFilter = true } = options;
+export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolean, userId?: string, role?: string } = {}) => {
+  const { realtime = false, subjectFilter = true, userId, role } = options;
   
   const [isLoading, setIsLoading] = useState(true)
   const [allYears, setAllYears] = useState<{id: string, name: string}[]>([]);
@@ -33,6 +35,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const [grades, setGrades] = useState<GradeEntry[]>([])
   const [levelingGrades, setLevelingGrades] = useState<LevelingGrade[]>([])
   const [skillSelections, setSkillSelections] = useState<SkillSelection[]>([])
+  const [assignments, setAssignments] = useState<GrowerAssignment[]>([])
 
   const [selectedStationId, setSelectedStationId] = useState('')
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
@@ -55,12 +58,18 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
   
 
-  // 1. Carga inicial de años
+  // 1. Carga inicial de años y asignaciones
   useEffect(() => {
     const fetchInitial = async () => {
       try {
-        const years = await getSchoolYearsList();
+        const [years, userAssignments] = await Promise.all([
+          getSchoolYearsList(),
+          role === 'grower' && userId ? getGrowerAssignments(userId) : Promise.resolve([])
+        ]);
+        
         setAllYears(years);
+        setAssignments(userAssignments);
+        
         if (years.length > 0) {
           setSelectedYearId(years[0].id);
         }
@@ -69,7 +78,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       }
     };
     fetchInitial();
-  }, []);
+  }, [userId, role]);
 
   // 2. Carga de estructura y estudiantes al cambiar año
   useEffect(() => {
@@ -115,6 +124,12 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
     }[selectedLevelGroup];
 
     return currentStation.subjects.filter(subject => {
+      // Si es grower, filtrar por sus asignaciones en esta estación
+      if (role === 'grower' && assignments.length > 0) {
+        const isAssigned = assignments.some(a => a.station_id === selectedStationId && a.subject_id === subject.id);
+        if (!isAssigned) return false;
+      }
+
       const subCourses = subject.courses || [];
       if (subCourses.length === 0) return true; // Materias globales
 
@@ -200,6 +215,19 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       else if (atelierName.includes('casa')) suffix = 'C';
 
       const studentCourseCode = `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
+      
+      // Si es grower, filtrar por sus asignaciones específicas (Nivel, Atelier, Curso)
+      if (role === 'grower' && assignments.length > 0 && currentSubject) {
+        const hasAssignmentForThisSubject = assignments.some(a => 
+          a.station_id === selectedStationId && 
+          a.subject_id === currentSubject.id &&
+          a.academic_level === student.academic_level &&
+          a.atelier === student.atelier &&
+          a.course === studentCourseCode
+        );
+        if (!hasAssignmentForThisSubject) return false;
+      }
+
       if (subjectFilter && currentSubject) {
         const allowedCourses = currentSubject.courses || [];
         if (!allowedCourses.some(course => course.trim().toUpperCase() === studentCourseCode)) return false;

@@ -5,8 +5,8 @@ import {
   UserCircle,  Sprout, FileDown, FileUp, CheckCircle2, X
 } from 'lucide-react';
 import { useGrading } from '../../hooks/useGrading';
+import { useAuth } from '../../context/AuthContext';
 import { StudentComment } from '../../types';
-
 import { GradingHeader } from '../Grading/components/TeacherGradingView/components/GradingHeader';
 import { GradingFilters } from '../Grading/components/TeacherGradingView/components/GradingFilters';
 
@@ -20,8 +20,14 @@ import { useMentorAI } from './hooks/useMentorAI';
 import { generateCommentsTemplateCsv, parseCommentsCsv } from './utils/CommentsCsvService';
 
 const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grower' }) => {
+  const { profile } = useAuth();
   // Optimizamos: NO activar realtime de notas y desactivamos el filtro de materia
-  const grading = useGrading({ realtime: false, subjectFilter: false });
+  const grading = useGrading({ 
+    realtime: false, 
+    subjectFilter: false,
+    userId: profile?.id,
+    role: profile?.role
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<any>(null);
 

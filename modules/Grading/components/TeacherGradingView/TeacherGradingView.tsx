@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Loader2, Search, Calendar, Lock, Unlock, Zap, Info, FileDown, FileUp, ShieldCheck, GraduationCap, ShieldAlert, X, CheckCircle2, AlertTriangle, UserPlus } from 'lucide-react';
 import { useGrading } from '../../../../hooks/useGrading';
+import { useAuth } from '../../../../context/AuthContext';
 import { useStudentResults } from './thGradingHooks/useStudentResults';
 import { GradingHeader } from './components/GradingHeader';
 import { GradingFilters } from './components/GradingFilters';
@@ -8,7 +9,12 @@ import { GradesTable } from './components/GradesTable/GradesTable';
 import { generateGradesTemplateCsv, parseGradesCsv } from '../../utils/GradesCsvService';
 
 const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'grower' }) => {
-  const grading = useGrading({ realtime: true });
+  const { profile } = useAuth();
+  const grading = useGrading({ 
+    realtime: true,
+    userId: profile?.id,
+    role: profile?.role
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<any>(null);
 

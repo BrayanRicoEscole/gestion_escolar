@@ -10,6 +10,7 @@ export interface DashboardStats {
   byLevel: { label: string; count: number }[];
   withdrawalReasons: { label: string; count: number }[];
   enrollmentByYear: { yearName: string; count: number }[];
+  byCourse: { label: string; count: number }[];
 }
 
 export const getDashboardStats = async (): Promise<DashboardStats> => {
@@ -49,6 +50,19 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     return acc;
   }, {});
 
+  const levelCounts = active.reduce((acc: any, s) => {
+    const l = s.academic_level || 'Sin Nivel';
+    acc[l] = (acc[l] || 0) + 1;
+    return acc;
+  }, {});
+
+  const courseCounts = active.reduce((acc: any, s) => {
+    // Usamos el grado como curso si no hay campo específico
+    const c = s.grade || 'Sin Curso';
+    acc[c] = (acc[c] || 0) + 1;
+    return acc;
+  }, {});
+
   const retireCounts = retired.reduce((acc: any, s) => {
     const reason = s.estado_actual || 'Otro';
     acc[reason] = (acc[reason] || 0) + 1;
@@ -78,7 +92,8 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       .map(([label, count]: [string, any]) => ({ label: `Grado ${label}`, count }))
       .sort((a, b) => b.count - a.count),
     byAtelier: Object.entries(atelierCounts).map(([label, count]: [string, any]) => ({ label, count })),
-    byLevel: [],
+    byLevel: Object.entries(levelCounts).map(([label, count]: [string, any]) => ({ label, count })),
+    byCourse: Object.entries(courseCounts).map(([label, count]: [string, any]) => ({ label, count })),
     withdrawalReasons: Object.entries(retireCounts).map(([label, count]: [string, any]) => ({ label, count })),
     enrollmentByYear: Object.entries(yearCounts)
       .map(([yearName, count]: [string, any]) => ({ yearName, count }))
