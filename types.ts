@@ -84,7 +84,8 @@ export interface Subject {
   courses: string[];
   ateliers: AtelierType[];
   levels: Level[];
-  skills?: Skill[]; 
+  skills?: Skill[];
+  station_id?: string;
 }
 
 export interface Station {
@@ -191,6 +192,41 @@ export interface ReportTemplate {
   created_at: string;
 }
 
+export interface StationReport {
+  id: string;
+  student_id: string;
+  school_year_id: string;
+  station_id: string;
+  subject_data: Record<string, {
+    value: number | null;
+    is_manual: boolean;
+    edited_by?: string;
+    edited_at?: string;
+  }>;
+  subject_skills: Record<string, {
+    skill_id: string;
+    description: string;
+  }>;
+  global_average: number;
+  is_global_manual: boolean;
+  global_edited_by?: string;
+  global_edited_at?: string;
+  station_comment?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'error' | 'success';
+  read: boolean;
+  created_at: string;
+  link?: string;
+}
+
 export interface AcademicReport {
   id: string;
   student_id: string;
@@ -262,6 +298,7 @@ export interface GrowerAssignment {
   grower_name?: string;
   station_id: string;
   station_name?: string;
+  school_year_id?: string;
   subject_id: string;
   subject_name?: string;
   academic_level: string;

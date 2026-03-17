@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, Printer, FileText, Award, Loader2, Send, MailCheck } from 'lucide-react';
-import { Student, SchoolYear, GradeEntry, Station } from '../../../../types';
+import { Student, SchoolYear, GradeEntry, Station, StudentComment } from '../../../../types';
 import { useFinalReport } from '../../hooks/useFinalReport';
 import { usePdfGenerator } from '../../hooks/usePdfGenerator';
 import { sendAcademicReportEmail } from '../../../../services/api/email.api';
@@ -12,6 +12,7 @@ interface Props {
   student: Student;
   schoolYear: SchoolYear | null;
   allGrades: GradeEntry[];
+  allComments: StudentComment[];
   onClose: () => void;
 }
 
@@ -19,6 +20,7 @@ export const FinalReportModal: React.FC<Props> = ({
   student,
   schoolYear,
   allGrades,
+  allComments,
   onClose
 }) => {
   if (!schoolYear) return null;
@@ -29,10 +31,19 @@ export const FinalReportModal: React.FC<Props> = ({
   const { stations, finalData } = useFinalReport(
     schoolYear,
     student,
-    allGrades
+    allGrades,
+    allComments
   );
 
-  const { generatePdfBlob, isGenerating: isPdfGenerating } = usePdfGenerator();
+  const { generatePdfBlob, downloadPdf, isGenerating: isPdfGenerating } = usePdfGenerator();
+
+  const handleDownloadPdf = async () => {
+    try {
+      await downloadPdf('printable-final-report', `Reporte_Final_${student.full_name}.pdf`);
+    } catch (error: any) {
+      alert(`Error al generar PDF: ${error.message}`);
+    }
+  };
 
   const handleSendEmail = async () => {
     setIsSending(true);
@@ -92,8 +103,13 @@ export const FinalReportModal: React.FC<Props> = ({
                 {isSending ? 'Enviando...' : 'Enviar por Correo'}
               </button>
               
-              <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black transition-all shadow-xl hover:bg-slate-100">
-                <Printer size={16} /> Exportar PDF
+              <button 
+                onClick={handleDownloadPdf}
+                disabled={isPdfGenerating}
+                className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black transition-all shadow-xl hover:bg-slate-100 disabled:opacity-30"
+              >
+                {isPdfGenerating ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />} 
+                Exportar PDF
               </button>
               <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all">
                 <X size={28} />

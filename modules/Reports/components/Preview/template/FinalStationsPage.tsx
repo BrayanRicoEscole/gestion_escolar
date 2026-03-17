@@ -35,6 +35,7 @@ interface Props {
   finalData: {
     labs: Record<string, any[]>;
     generalAverage: number;
+    convivenciaResults: any[];
   };
 }
 
@@ -130,18 +131,42 @@ const FinalStationsPage: React.FC<Props> = ({ student, schoolYear, stations, fin
                       {r.stationResults.map((st: any) => (
                         <td key={st.id} className="px-2 py-4 text-center border-r border-[#ff9900]">
                           <span className="text-xs font-black text-[#0f4899]">
-                            {st.hasData ? (st.average >= 3.7 ? 'Consolidado' : 'No Consolidado') : '—'}
+                            {st.hasData ? st.average.toFixed(2) : '—'}
                           </span>
                         </td>
                       ))}
                       <td className="px-4 py-2 text-[#0f4899] text-xs font-black text-center">
-                        {r.finalYearAvg > 0 ? (r.finalYearAvg >= 3.7 ? 'Consolidado' : 'No Consolidado') : '—'}
+                        {r.finalYearAvg > 0 ? r.finalYearAvg.toFixed(2) : '—'}
                       </td>
                     </tr>
                   ))}
                 </React.Fragment>
               );
             })}
+            {/* Fila de Convivencia */}
+            <tr className="bg-slate-50 border-b border-[#ff9900]">
+              <td colSpan={stations.length + 2} className="px-4 py-2">
+                <div className="font-bold text-sm text-[#0f4899]">🤝 CONVIVENCIA Y PROCESOS SOCIALES</div>
+                <div className="font-bold text-xs text-[#0f4899] opacity-80">INTERACCIÓN Y DESARROLLO SOCIOEMOCIONAL</div>
+              </td>
+            </tr>
+            <tr className="border-b border-[#ff9900]">
+              <td className="px-4 py-2 font-bold text-xs border-r border-[#ff9900] text-[#0f4899]">
+                Desempeño de Convivencia
+              </td>
+              {finalData.convivenciaResults.map((st: any) => (
+                <td key={st.id} className="px-2 py-4 text-center border-r border-[#ff9900]">
+                  <span className="text-xs font-black text-[#0f4899]">
+                    {st.hasData ? st.average.toFixed(2) : '—'}
+                  </span>
+                </td>
+              ))}
+              <td className="px-4 py-2 text-[#0f4899] text-xs font-black text-center">
+                {finalData.convivenciaResults.filter((r: any) => r.hasData).length > 0 
+                  ? (finalData.convivenciaResults.reduce((acc: number, r: any) => acc + r.average, 0) / finalData.convivenciaResults.filter((r: any) => r.hasData).length).toFixed(2)
+                  : '—'}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

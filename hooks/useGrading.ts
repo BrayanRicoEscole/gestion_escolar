@@ -37,6 +37,13 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const [skillSelections, setSkillSelections] = useState<SkillSelection[]>([])
   const [assignments, setAssignments] = useState<GrowerAssignment[]>([])
 
+  const filteredYears = useMemo(() => {
+    if (role !== 'grower') return allYears;
+    if (assignments.length === 0) return [];
+    const assignedYearIds = new Set(assignments.map(a => a.school_year_id));
+    return allYears.filter(y => assignedYearIds.has(y.id));
+  }, [allYears, assignments, role]);
+
   const [selectedStationId, setSelectedStationId] = useState('')
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
@@ -70,8 +77,12 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
         setAllYears(years);
         setAssignments(userAssignments);
         
-        if (years.length > 0) {
-          setSelectedYearId(years[0].id);
+        const initialYears = role === 'grower' && userAssignments.length > 0 
+          ? years.filter(y => userAssignments.some(a => a.school_year_id === y.id))
+          : years;
+
+        if (initialYears.length > 0) {
+          setSelectedYearId(initialYears[0].id);
         }
       } catch (e) {
         console.error('[DB] ❌ Error en carga inicial:', e);
@@ -94,11 +105,25 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
         setSchoolYear(sy);
         setStudents(st);
 
-        if (sy?.stations?.length) {
-          const station = sy.stations[0];
+        // Auto-seleccionar estación válida
+        const validStations = role === 'grower' && assignments.length > 0
+          ? sy.stations.filter(s => assignments.some(a => a.station_id === s.id))
+          : sy.stations;
+
+        if (validStations.length > 0) {
+          const station = validStations[0];
           setSelectedStationId(station.id);
-          if (station.subjects?.length) setSelectedSubjectId(station.subjects[0].id);
-          else setSelectedSubjectId('');
+          
+          // Auto-seleccionar materia válida
+          const validSubjects = role === 'grower' && assignments.length > 0
+            ? station.subjects.filter(sub => assignments.some(a => a.station_id === station.id && a.subject_id === sub.id))
+            : station.subjects;
+
+          if (validSubjects.length > 0) {
+            setSelectedSubjectId(validSubjects[0].id);
+          } else {
+            setSelectedSubjectId('');
+          }
         }
       } catch (e) {
         console.error('[DB] ❌ Error cargando año:', e);
@@ -113,6 +138,14 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
     schoolYear?.stations.find(s => s.id === selectedStationId)
   , [schoolYear, selectedStationId]);
 
+  const filteredStations = useMemo(() => {
+    if (!schoolYear?.stations) return [];
+    if (role !== 'grower') return schoolYear.stations;
+    if (assignments.length === 0) return [];
+    const assignedStationIds = new Set(assignments.map(a => a.station_id));
+    return schoolYear.stations.filter(s => assignedStationIds.has(s.id));
+  }, [schoolYear, assignments, role]);
+
   const filteredSubjects = useMemo(() => {
     if (!currentStation?.subjects) return [];
     
@@ -125,7 +158,8 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
     return currentStation.subjects.filter(subject => {
       // Si es grower, filtrar por sus asignaciones en esta estación
-      if (role === 'grower' && assignments.length > 0) {
+      if (role === 'grower') {
+        if (assignments.length === 0) return false;
         const isAssigned = assignments.some(a => a.station_id === selectedStationId && a.subject_id === subject.id);
         if (!isAssigned) return false;
       }
@@ -155,6 +189,20 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const currentSubject = useMemo(() => 
     currentStation?.subjects?.find(s => s.id === selectedSubjectId)
   , [currentStation, selectedSubjectId]);
+
+  const filteredCourses = useMemo(() => {
+    if (!currentSubject?.courses) return [];
+    if (role !== 'grower') return currentSubject.courses;
+    if (assignments.length === 0) return [];
+    
+    return currentSubject.courses.filter(course => {
+      return assignments.some(a => 
+        a.station_id === selectedStationId && 
+        a.subject_id === selectedSubjectId &&
+        a.course === course
+      );
+    });
+  }, [currentSubject, assignments, role, selectedStationId, selectedSubjectId]);
 
   /**
    * Ejecuta la importación profunda validando documentos
@@ -217,15 +265,18 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       const studentCourseCode = `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
       
       // Si es grower, filtrar por sus asignaciones específicas (Nivel, Atelier, Curso)
-      if (role === 'grower' && assignments.length > 0 && currentSubject) {
-        const hasAssignmentForThisSubject = assignments.some(a => 
-          a.station_id === selectedStationId && 
-          a.subject_id === currentSubject.id &&
-          a.academic_level === student.academic_level &&
-          a.atelier === student.atelier &&
-          a.course === studentCourseCode
-        );
-        if (!hasAssignmentForThisSubject) return false;
+      if (role === 'grower') {
+        if (assignments.length === 0) return false;
+        if (currentSubject) {
+          const hasAssignmentForThisSubject = assignments.some(a => 
+            a.station_id === selectedStationId && 
+            a.subject_id === currentSubject.id &&
+            a.academic_level === student.academic_level &&
+            a.atelier === student.atelier &&
+            a.course === studentCourseCode
+          );
+          if (!hasAssignmentForThisSubject) return false;
+        }
       }
 
       if (subjectFilter && currentSubject) {
@@ -481,8 +532,8 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
     skillSelections.filter(s => s.studentId === studentId && s.subjectId === selectedSubjectId).map(s => s.skillId);
 
   return {
-    isLoading, allYears, selectedYearId, setSelectedYearId, schoolYear, currentStation, currentSubject,
-    filteredSubjects,
+    isLoading, allYears: filteredYears, selectedYearId, setSelectedYearId, schoolYear, currentStation, currentSubject,
+    filteredSubjects, filteredStations, filteredCourses,
     filteredStudents, paginatedStudents, totalStudents: filteredStudents.length, currentPage, setCurrentPage, pageSize, setPageSize,
     selectedStationId, setSelectedStationId, selectedSubjectId, setSelectedSubjectId,
     selectedCourse, setSelectedCourse, selectedAtelier, setSelectedAtelier, selectedAtelierType, setSelectedAtelierType,

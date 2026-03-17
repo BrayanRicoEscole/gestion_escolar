@@ -1,40 +1,60 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Users, UserCheck, UserX, CreditCard, Home, MapPin, 
   TrendingUp, BarChart3, PieChart, School, Loader2, ArrowUpRight, 
   CalendarDays, Info, AlertTriangle, ShieldAlert, Filter,
-  LayoutGrid, List
+  LayoutGrid, List, XCircle
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, Cell, PieChart as RePieChart, Pie, Legend 
+  ResponsiveContainer, Cell, PieChart as RePieChart, Pie, Legend,
+  LabelList
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getDashboardStats, DashboardStats } from '../../services/api';
+import { getDashboardData, DashboardData } from '../../services/api/dashboard.api';
+import { getGrowerAssignments } from '../../services/api';
 import { Card } from '../../components/ui/Card';
+import { useAuth } from '../../context/AuthContext';
+import { notificationTriggerApi } from '../../services/api/notificationTrigger.api';
+import { notificationsApi } from '../../services/api/notifications.api';
+import { Notification, GrowerAssignment } from '../../types';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { BookOpen, Layers, MapPin as MapPinIcon, GraduationCap as GraduationCapIcon } from 'lucide-react';
 
 type ChartType = 'bar' | 'pie';
 type Dimension = 'modality' | 'grade' | 'atelier' | 'level' | 'year' | 'course';
 
 export const DashboardModule: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const { profile } = useAuth();
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRlsError, setIsRlsError] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isCheckingNotifications, setIsCheckingNotifications] = useState(false);
+  const [myAssignments, setMyAssignments] = useState<GrowerAssignment[]>([]);
+  
+  const isSupport = profile?.role === 'support';
   
   // Customization state
   const [activeDimension, setActiveDimension] = useState<Dimension>('modality');
   const [activeChartType, setActiveChartType] = useState<ChartType>('bar');
 
+  // Global Filters
+  const [filterYear, setFilterYear] = useState<string>('all');
+  const [filterModality, setFilterModality] = useState<string>('all');
+  const [filterCourse, setFilterCourse] = useState<string>('all');
+
   useEffect(() => {
-    getDashboardStats()
-      .then(data => {
-        setStats(data);
+    getDashboardData()
+      .then(res => {
+        setData(res);
         setError(null);
         setIsRlsError(false);
       })
       .catch(err => {
-        console.error("[Dashboard] Error cargando estadísticas:", err);
+        console.error("[Dashboard] Error cargando datos:", err);
         if (err.code === '42P17' || err.message?.includes('recursion') || err.message?.includes('permission')) {
           setIsRlsError(true);
         } else {
@@ -44,7 +64,112 @@ export const DashboardModule: React.FC = () => {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+
+    if (profile?.id) {
+      notificationsApi.getNotifications(profile.id).then(setNotifications);
+      if (profile.role === 'grower') {
+        getGrowerAssignments(profile.id).then(setMyAssignments);
+      }
+    }
+  }, [profile?.id, profile?.role]);
+
+  const handleManualCheck = async () => {
+    setIsCheckingNotifications(true);
+    try {
+      await notificationTriggerApi.checkAndNotifyPendingGrades();
+      if (profile?.id) {
+        const updated = await notificationsApi.getNotifications(profile.id);
+        setNotifications(updated);
+      }
+    } catch (error) {
+      console.error('Error checking notifications:', error);
+    } finally {
+      setIsCheckingNotifications(false);
+    }
+  };
+
+  // Filtered Students Logic
+  const filteredStudents = useMemo(() => {
+    if (!data) return [];
+    
+    return data.students.filter(student => {
+      // 1. Filter by Modality
+      if (filterModality !== 'all' && student.modality !== filterModality) return false;
+      
+      // 2. Filter by Course (Grade)
+      if (filterCourse !== 'all' && student.grade !== filterCourse) return false;
+      
+      // 3. Filter by Year
+      if (filterYear !== 'all') {
+        const studentYears = data.academicRecords
+          .filter(r => r.student_id === student.id)
+          .map(r => r.year_name);
+        if (!studentYears.includes(filterYear)) return false;
+      }
+      
+      return true;
+    });
+  }, [data, filterYear, filterModality, filterCourse]);
+
+  // Derived Stats based on filtered students
+  const stats = useMemo(() => {
+    if (!data) return null;
+
+    const active = filteredStudents.filter(s => s.estado_actual?.toLowerCase().includes('activo'));
+    const retired = filteredStudents.filter(s => !s.estado_actual?.toLowerCase().includes('activo'));
+    const pazYSalvoCount = active.filter(s => s.paz_y_salvo?.toLowerCase().includes('si') || s.paz_y_salvo?.toLowerCase().includes('ok')).length;
+
+    // Aggregations for charts
+    const modalityCounts = active.reduce((acc: any, s) => {
+      const mod = s.modality === 'RS' ? 'Renfort Sede' : 'Renfort Casa';
+      acc[mod] = (acc[mod] || 0) + 1;
+      return acc;
+    }, {});
+
+    const gradeCounts = active.reduce((acc: any, s) => {
+      const g = s.grade || 'Sin Grado';
+      acc[g] = (acc[g] || 0) + 1;
+      return acc;
+    }, {});
+
+    const atelierCounts = active.reduce((acc: any, s) => {
+      const a = s.atelier || 'Por Asignar';
+      acc[a] = (acc[a] || 0) + 1;
+      return acc;
+    }, {});
+
+    const levelCounts = active.reduce((acc: any, s) => {
+      const l = s.academic_level || 'Sin Nivel';
+      acc[l] = (acc[l] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Year counts need to look at academic records for the filtered students
+    const yearCounts = filteredStudents.reduce((acc: any, s) => {
+      const studentYears = data.academicRecords
+        .filter(r => r.student_id === s.id)
+        .map(r => r.year_name);
+      
+      studentYears.forEach(y => {
+        acc[y] = (acc[y] || 0) + 1;
+      });
+      return acc;
+    }, {});
+
+    return {
+      totalActive: active.length,
+      totalRetired: retired.length,
+      pazYSalvoCount,
+      byModality: Object.entries(modalityCounts).map(([label, count]: [string, any]) => ({ label, count })),
+      byGrade: Object.entries(gradeCounts).map(([label, count]: [string, any]) => ({ label: `Grado ${label}`, count })),
+      byAtelier: Object.entries(atelierCounts).map(([label, count]: [string, any]) => ({ label, count })),
+      byLevel: Object.entries(levelCounts).map(([label, count]: [string, any]) => ({ label, count })),
+      byCourse: Object.entries(gradeCounts).map(([label, count]: [string, any]) => ({ label, count })),
+      enrollmentByYear: Object.entries(yearCounts)
+        .map(([yearName, count]: [string, any]) => ({ yearName, count }))
+        .sort((a, b) => b.yearName.localeCompare(a.yearName))
+    };
+  }, [data, filteredStudents]);
 
   if (loading) {
     return (
@@ -78,7 +203,7 @@ export const DashboardModule: React.FC = () => {
     );
   }
 
-  if (error || !stats) {
+  if (error || !data || !stats) {
     return (
       <div className="p-8 max-w-2xl mx-auto mt-20">
         <Card className="border-amber-200 bg-amber-50/30 p-12 text-center text-black">
@@ -118,6 +243,14 @@ export const DashboardModule: React.FC = () => {
 
   const chartData = getChartData();
 
+  const clearFilters = () => {
+    setFilterYear('all');
+    setFilterModality('all');
+    setFilterCourse('all');
+  };
+
+  const hasActiveFilters = filterYear !== 'all' || filterModality !== 'all' || filterCourse !== 'all';
+
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-10 animate-in fade-in duration-700 pb-20 text-black">
       
@@ -126,28 +259,132 @@ export const DashboardModule: React.FC = () => {
         <div>
            <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4">
               <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg">
-                 <BarChart3 size={32} />
+                 {profile?.role === 'grower' ? <GraduationCapIcon size={32} /> : <BarChart3 size={32} />}
               </div>
-              Panel de Control Institucional
+              {profile?.role === 'grower' ? 'Mi Panel de Grower' : 'Panel de Control Institucional'}
            </h1>
-           <p className="text-slate-500 font-medium mt-2">Visión analítica en tiempo real de la comunidad Renfort</p>
+           <p className="text-slate-500 font-medium mt-2">
+             {profile?.role === 'grower' ? 'Visualiza tu carga académica y progreso' : 'Visión analítica en tiempo real de la comunidad Renfort'}
+           </p>
         </div>
-        <div className="flex items-center gap-3 bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm font-black text-xs uppercase tracking-widest text-slate-500">
-           <CalendarDays size={18} className="text-indigo-600" />
-           Ciclo Académico Actual
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-3 bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm font-black text-xs uppercase tracking-widest text-slate-500">
+             <CalendarDays size={18} className="text-indigo-600" />
+             Ciclo Académico Actual
+          </div>
+          {hasActiveFilters && isSupport && (
+            <button 
+              onClick={clearFilters}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 transition-colors"
+            >
+              <XCircle size={14} />
+              Limpiar Filtros
+            </button>
+          )}
         </div>
       </header>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard title="Seeds Activos" value={stats.totalActive} icon={UserCheck} color="bg-indigo-500" sub="Matrícula vigente" />
-        <KPICard title="Tasa Retención" value={`${retentionRate}%`} icon={TrendingUp} color="bg-emerald-500" sub="Fidelidad histórica" />
-        <KPICard title="Paz y Salvo" value={`${pazYSalvoRate}%`} icon={CreditCard} color="bg-amber-500" sub="Salud administrativa" />
-        <KPICard title="Archivo Histórico" value={stats.totalRetired} icon={UserX} color="bg-slate-400" sub="Seeds egresados/retirados" />
-      </div>
+      {profile?.role === 'grower' && (
+        <div className="mb-10">
+          <Card className="flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                <GraduationCapIcon className="text-indigo-600" size={24} /> 
+                Mi Asignación Académica
+              </h3>
+              <div className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                {myAssignments.length} Materias Asignadas
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {myAssignments.map((assignment) => (
+                <div key={assignment.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-white hover:shadow-xl hover:shadow-indigo-100/20 transition-all group">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                      <BookOpen size={24} />
+                    </div>
+                    <span className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                      {assignment.course}
+                    </span>
+                  </div>
+                  <h4 className="text-lg font-black text-slate-900 mb-1">{assignment.subject_name}</h4>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{assignment.station_name}</p>
+                  
+                  <div className="space-y-3 pt-4 border-t border-slate-200">
+                    <div className="flex items-center gap-3 text-slate-500">
+                      <Layers size={14} className="text-slate-400" />
+                      <span className="text-xs font-bold">{assignment.academic_level}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-slate-500">
+                      <MapPinIcon size={14} className="text-slate-400" />
+                      <span className="text-xs font-bold">{assignment.atelier}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {myAssignments.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+                  <ShieldAlert size={48} className="mx-auto text-slate-200 mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Aún no tienes materias asignadas</p>
+                  <p className="text-slate-400 text-[10px] mt-1">Contacta al equipo de soporte para configurar tu carga académica.</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
 
-      {/* Customizable Analytics Section */}
-      <Card className="p-8">
+      {/* Global Filters Row */}
+      {isSupport && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Filtrar por Año</label>
+          <select 
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+          >
+            <option value="all">Todos los Años</option>
+            {data.availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Filtrar por Modalidad</label>
+          <select 
+            value={filterModality}
+            onChange={(e) => setFilterModality(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+          >
+            <option value="all">Todas las Modalidades</option>
+            {data.availableModalities.map(m => <option key={m} value={m}>{m === 'RS' ? 'Renfort Sede' : m === 'RC' ? 'Renfort Casa' : m}</option>)}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Filtrar por Curso</label>
+          <select 
+            value={filterCourse}
+            onChange={(e) => setFilterCourse(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+          >
+            <option value="all">Todos los Cursos</option>
+            {data.availableCourses.map(c => <option key={c} value={c}>Grado {c}</option>)}
+          </select>
+        </div>
+      </div>
+      )}
+
+      {isSupport && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <KPICard title="Seeds Activos" value={stats.totalActive} icon={UserCheck} color="bg-indigo-500" sub="Matrícula vigente" />
+          <KPICard title="Tasa Retención" value={`${retentionRate}%`} icon={TrendingUp} color="bg-emerald-500" sub="Fidelidad histórica" />
+          <KPICard title="Paz y Salvo" value={`${pazYSalvoRate}%`} icon={CreditCard} color="bg-amber-500" sub="Salud administrativa" />
+          <KPICard title="Archivo Histórico" value={stats.totalRetired} icon={UserX} color="bg-slate-400" sub="Seeds egresados/retirados" />
+        </div>
+      )}
+
+      {isSupport && (
+        <Card className="p-8 mb-10">
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -207,7 +444,7 @@ export const DashboardModule: React.FC = () => {
             >
               <ResponsiveContainer width="100%" height="100%">
                 {activeChartType === 'bar' ? (
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  <BarChart data={chartData} margin={{ top: 30, right: 30, left: 20, bottom: 60 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="name" 
@@ -227,6 +464,11 @@ export const DashboardModule: React.FC = () => {
                       {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
+                      <LabelList 
+                        dataKey="value" 
+                        position="top" 
+                        style={{ fill: '#64748b', fontSize: '10px', fontWeight: 900 }} 
+                      />
                     </Bar>
                   </BarChart>
                 ) : (
@@ -239,7 +481,7 @@ export const DashboardModule: React.FC = () => {
                       outerRadius={140}
                       paddingAngle={5}
                       dataKey="value"
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                      label={({ name, value }) => `${name}: ${value}`}
                     >
                       {chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -256,42 +498,89 @@ export const DashboardModule: React.FC = () => {
           </AnimatePresence>
         </div>
       </Card>
+      )}
 
       {/* Secondary Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-           <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3"><PieChart className="text-indigo-600" size={24} /> Distribución por Estación (Atelier)</h3>
-           <div className="space-y-6">
-              {stats.byAtelier.length > 0 ? stats.byAtelier.map((mod, idx) => (
-                <div key={mod.label} className="space-y-2">
-                   <div className="flex justify-between items-end">
-                      <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{mod.label}</span>
-                      <span className="text-xs font-black text-indigo-600">{mod.count} Seeds</span>
-                   </div>
-                   <div className="h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-100 shadow-inner">
-                      <div className="h-full transition-all duration-1000 bg-indigo-500" style={{ width: `${(mod.count / stats.totalActive) * 100}%` }}></div>
-                   </div>
+        {isSupport && (
+          <Card className="flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                <AlertTriangle className="text-amber-500" size={24} /> 
+                Alertas de Notas Pendientes
+              </h3>
+              <button
+                onClick={handleManualCheck}
+                disabled={isCheckingNotifications}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {isCheckingNotifications ? <Loader2 size={12} className="animate-spin" /> : <TrendingUp size={12} />}
+                Verificar Ahora
+              </button>
+            </div>
+            
+            <div className="flex-1 space-y-4">
+              {notifications.filter(n => n.type === 'warning' || n.type === 'info').slice(0, 5).map((notif) => (
+                <div key={notif.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
+                  <div className={`p-2 rounded-lg shrink-0 ${notif.type === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                    {notif.type === 'warning' ? <AlertTriangle size={16} /> : <Info size={16} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-800 mb-1">{notif.title}</p>
+                    <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{notif.message}</p>
+                    <p className="text-[9px] text-slate-400 mt-2 font-medium">
+                      {format(new Date(notif.created_at), "d 'de' MMMM, HH:mm", { locale: es })}
+                    </p>
+                  </div>
                 </div>
-              )) : <p className="text-center py-10 text-slate-300 font-bold uppercase text-xs">Sin datos para graficar</p>}
-           </div>
-        </Card>
+              ))}
+              {notifications.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <ShieldAlert size={48} className="mb-4 opacity-20" />
+                  <p className="text-xs font-bold uppercase tracking-widest">No hay alertas pendientes</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
-        <Card>
-           <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3"><School className="text-indigo-600" size={24} /> Histórico de Matrícula</h3>
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {stats.enrollmentByYear.length > 0 ? stats.enrollmentByYear.map(year => (
-                <div key={year.yearName} className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white transition-all group hover:shadow-md">
-                   <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-slate-400 group-hover:text-indigo-600 transition-colors">
-                       <CalendarDays size={20} />
+        {isSupport && (
+          <Card>
+             <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3"><PieChart className="text-indigo-600" size={24} /> Distribución por Estación (Atelier)</h3>
+             <div className="space-y-6">
+                {stats.byAtelier.length > 0 ? stats.byAtelier.map((mod, idx) => (
+                  <div key={mod.label} className="space-y-2">
+                     <div className="flex justify-between items-end">
+                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{mod.label}</span>
+                        <span className="text-xs font-black text-indigo-600">{mod.count} Seeds</span>
                      </div>
-                     <span className="font-black text-slate-600 group-hover:text-slate-900">{year.yearName}</span>
-                   </div>
-                   <span className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-100">{year.count}</span>
-                </div>
-              )) : <p className="text-center py-10 text-slate-300 font-bold uppercase text-xs col-span-2">Sin años registrados</p>}
-           </div>
-        </Card>
+                     <div className="h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-100 shadow-inner">
+                        <div className="h-full transition-all duration-1000 bg-indigo-500" style={{ width: `${(mod.count / (stats.totalActive || 1)) * 100}%` }}></div>
+                     </div>
+                  </div>
+                )) : <p className="text-center py-10 text-slate-300 font-bold uppercase text-xs">Sin datos para graficar</p>}
+             </div>
+          </Card>
+        )}
+
+        {isSupport && (
+          <Card>
+             <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3"><School className="text-indigo-600" size={24} /> Histórico de Matrícula</h3>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {stats.enrollmentByYear.length > 0 ? stats.enrollmentByYear.map(year => (
+                  <div key={year.yearName} className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white transition-all group hover:shadow-md">
+                     <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-slate-400 group-hover:text-indigo-600 transition-colors">
+                         <CalendarDays size={20} />
+                       </div>
+                       <span className="font-black text-slate-600 group-hover:text-slate-900">{year.yearName}</span>
+                     </div>
+                     <span className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-100">{year.count}</span>
+                  </div>
+                )) : <p className="text-center py-10 text-slate-300 font-bold uppercase text-xs col-span-2">Sin años registrados</p>}
+             </div>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -59,7 +59,15 @@ export const ReportPreviewModal: React.FC<Props> = ({
     skillSelections: skillSelections || []
   });
 
-  const { generatePdfBlob, isGenerating: isPdfGenerating } = usePdfGenerator();
+  const { generatePdfBlob, downloadPdf, isGenerating: isPdfGenerating } = usePdfGenerator();
+
+  const handleDownloadPdf = async () => {
+    try {
+      await downloadPdf('printable-report', `Reporte_${student.full_name}.pdf`);
+    } catch (error: any) {
+      alert(`Error al generar PDF: ${error.message}`);
+    }
+  };
 
   const handleSendEmail = async () => {
     setIsSending(true);
@@ -147,8 +155,13 @@ export const ReportPreviewModal: React.FC<Props> = ({
                 {isDocxGenerating ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
                 {isDocxGenerating ? 'Procesando...' : 'Generar .docx'}
               </button>
-              <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black transition-all shadow-xl hover:bg-slate-100">
-                <Printer size={16} /> Exportar PDF
+              <button 
+                onClick={handleDownloadPdf}
+                disabled={isPdfGenerating}
+                className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black transition-all shadow-xl hover:bg-slate-100 disabled:opacity-30"
+              >
+                {isPdfGenerating ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />} 
+                Exportar PDF
               </button>
               <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all">
                 <X size={28} />

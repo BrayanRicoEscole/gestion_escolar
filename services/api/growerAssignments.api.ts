@@ -8,7 +8,7 @@ export const getGrowerAssignments = async (growerId?: string): Promise<GrowerAss
     .select(`
       *,
       profiles:grower_id(full_name),
-      stations:station_id(name),
+      stations:station_id(name, school_year_id),
       subjects:subject_id(name)
     `);
 
@@ -24,6 +24,7 @@ export const getGrowerAssignments = async (growerId?: string): Promise<GrowerAss
     ...item,
     grower_name: item.profiles?.full_name,
     station_name: item.stations?.name,
+    school_year_id: item.stations?.school_year_id,
     subject_name: item.subjects?.name
   }));
 };
@@ -37,6 +38,16 @@ export const createGrowerAssignment = async (assignment: Omit<GrowerAssignment, 
 
   if (error) throw error;
   return data;
+};
+
+export const createGrowerAssignments = async (assignments: Omit<GrowerAssignment, 'id'>[]): Promise<GrowerAssignment[]> => {
+  const { data, error } = await supabase
+    .from('grower_assignments')
+    .insert(assignments)
+    .select();
+
+  if (error) throw error;
+  return data || [];
 };
 
 export const deleteGrowerAssignment = async (id: string): Promise<void> => {

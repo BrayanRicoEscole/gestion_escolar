@@ -12,6 +12,7 @@ interface Props {
   finalData: {
     labs: Record<string, any[]>;
     generalAverage: number;
+    convivenciaResults: any[];
   };
 }
 

@@ -1,21 +1,18 @@
 import { supabase } from './client';
+import { Student } from '../../types';
 
-export interface DashboardStats {
-  totalActive: number;
-  totalRetired: number;
-  pazYSalvoCount: number;
-  byModality: { label: string; count: number; percentage: number }[];
-  byGrade: { label: string; count: number }[];
-  byAtelier: { label: string; count: number }[];
-  byLevel: { label: string; count: number }[];
-  withdrawalReasons: { label: string; count: number }[];
-  enrollmentByYear: { yearName: string; count: number }[];
-  byCourse: { label: string; count: number }[];
+export interface DashboardData {
+  students: Student[];
+  academicRecords: { student_id: string; year_name: string }[];
+  availableYears: string[];
+  availableModalities: string[];
+  availableCourses: string[];
 }
 
-export const getDashboardStats = async (): Promise<DashboardStats> => {
-  console.log("[DEBUG:Dashboard] 📊 Solicitando estadísticas...");
+export const getDashboardData = async (): Promise<DashboardData> => {
+  console.log("[DEBUG:Dashboard] 📊 Solicitando datos para el dashboard...");
   
+  // 1. Fetch all students
   const { data: students, error: studentError } = await supabase
     .from('students')
     .select('*');
@@ -25,78 +22,31 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     throw studentError;
   }
 
-  console.log(`[DEBUG:Dashboard] ✅ ${students?.length || 0} estudiantes encontrados.`);
-
-  const active = students?.filter(s => s.estado_actual?.toLowerCase().includes('activo')) || [];
-  const retired = students?.filter(s => !s.estado_actual?.toLowerCase().includes('activo')) || [];
-  
-  console.log(`[DEBUG:Dashboard] 📈 Activos: ${active.length}, Retirados: ${retired.length}`);
-
-  const modalityCounts = active.reduce((acc: any, s) => {
-    const mod = s.modality === 'RS' ? 'Renfort Sede' : 'Renfort Casa';
-    acc[mod] = (acc[mod] || 0) + 1;
-    return acc;
-  }, {});
-
-  const gradeCounts = active.reduce((acc: any, s) => {
-    const g = s.grade || 'Sin Grado';
-    acc[g] = (acc[g] || 0) + 1;
-    return acc;
-  }, {});
-
-  const atelierCounts = active.reduce((acc: any, s) => {
-    const a = s.atelier || 'Por Asignar';
-    acc[a] = (acc[a] || 0) + 1;
-    return acc;
-  }, {});
-
-  const levelCounts = active.reduce((acc: any, s) => {
-    const l = s.academic_level || 'Sin Nivel';
-    acc[l] = (acc[l] || 0) + 1;
-    return acc;
-  }, {});
-
-  const courseCounts = active.reduce((acc: any, s) => {
-    // Usamos el grado como curso si no hay campo específico
-    const c = s.grade || 'Sin Curso';
-    acc[c] = (acc[c] || 0) + 1;
-    return acc;
-  }, {});
-
-  const retireCounts = retired.reduce((acc: any, s) => {
-    const reason = s.estado_actual || 'Otro';
-    acc[reason] = (acc[reason] || 0) + 1;
-    return acc;
-  }, {});
-
-  const { data: yearStats } = await supabase
+  // 2. Fetch academic records to map students to years
+  const { data: records, error: recordsError } = await supabase
     .from('student_academic_records')
-    .select('school_years(name)');
-    
-  const yearCounts = (yearStats || []).reduce((acc: any, curr: any) => {
-    const name = curr.school_years?.name || 'N/A';
-    acc[name] = (acc[name] || 0) + 1;
-    return acc;
-  }, {});
+    .select('student_id, school_years(name)');
+
+  if (recordsError) {
+    console.error("[DEBUG:Dashboard] ❌ Error recuperando registros académicos:", recordsError);
+    throw recordsError;
+  }
+
+  const academicRecords = (records || []).map((r: any) => ({
+    student_id: r.student_id,
+    year_name: r.school_years?.name || 'N/A'
+  }));
+
+  // 3. Extract available filter values
+  const availableYears = Array.from(new Set(academicRecords.map(r => r.year_name))).sort().reverse();
+  const availableModalities = Array.from(new Set(students?.map(s => s.modality).filter(Boolean) as string[])).sort();
+  const availableCourses = Array.from(new Set(students?.map(s => s.grade).filter(Boolean) as string[])).sort();
 
   return {
-    totalActive: active.length,
-    totalRetired: retired.length,
-    pazYSalvoCount: active.filter(s => s.paz_y_salvo?.toLowerCase().includes('si') || s.paz_y_salvo?.toLowerCase().includes('ok')).length,
-    byModality: Object.entries(modalityCounts).map(([label, count]: [string, any]) => ({
-      label,
-      count,
-      percentage: Math.round((count / (active.length || 1)) * 100)
-    })),
-    byGrade: Object.entries(gradeCounts)
-      .map(([label, count]: [string, any]) => ({ label: `Grado ${label}`, count }))
-      .sort((a, b) => b.count - a.count),
-    byAtelier: Object.entries(atelierCounts).map(([label, count]: [string, any]) => ({ label, count })),
-    byLevel: Object.entries(levelCounts).map(([label, count]: [string, any]) => ({ label, count })),
-    byCourse: Object.entries(courseCounts).map(([label, count]: [string, any]) => ({ label, count })),
-    withdrawalReasons: Object.entries(retireCounts).map(([label, count]: [string, any]) => ({ label, count })),
-    enrollmentByYear: Object.entries(yearCounts)
-      .map(([yearName, count]: [string, any]) => ({ yearName, count }))
-      .sort((a, b) => b.yearName.localeCompare(a.yearName))
+    students: students || [],
+    academicRecords,
+    availableYears,
+    availableModalities,
+    availableCourses
   };
 };

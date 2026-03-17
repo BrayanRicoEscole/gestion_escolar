@@ -52,5 +52,47 @@ export const usePdfGenerator = () => {
     }
   };
 
-  return { generatePdfBlob, isGenerating };
+  const downloadPdf = async (elementId: string, filename: string) => {
+    setIsGenerating(true);
+    const element = document.getElementById(elementId);
+    
+    if (!element) {
+      setIsGenerating(false);
+      throw new Error("Elemento de reporte no encontrado en el DOM");
+    }
+
+    const html2pdf = (window as any).html2pdf;
+    if (!html2pdf) {
+      setIsGenerating(false);
+      throw new Error("La librería html2pdf no se ha cargado correctamente.");
+    }
+
+    const opt = {
+      margin: 10,
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        letterRendering: true,
+        logging: false,
+        allowTaint: true
+      },
+      jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    try {
+      // Pequeño delay para asegurar que el DOM esté listo y las imágenes cargadas
+      await new Promise(resolve => setTimeout(resolve, 800));
+      await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error("[PdfGenerator] Error al descargar:", error);
+      throw error;
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return { generatePdfBlob, downloadPdf, isGenerating };
 };

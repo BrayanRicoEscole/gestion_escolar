@@ -235,6 +235,7 @@ export const FinalReportTab: React.FC<FinalReportTabProps> = ({
           student={previewStudent}
           schoolYear={schoolYear}
           allGrades={allGrades}
+          allComments={allComments}
           onClose={() => setPreviewStudent(null)}
         />
       )}

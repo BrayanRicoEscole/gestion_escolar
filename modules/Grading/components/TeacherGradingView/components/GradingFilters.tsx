@@ -13,6 +13,8 @@ interface GradingFiltersProps {
   schoolYear: SchoolYear;
   station: Station;
   filteredSubjects?: any[];
+  filteredStations?: any[];
+  filteredCourses?: string[];
   selectedStationId: string;
   selectedSubjectId: string;
   selectedCourse: string;
@@ -38,6 +40,8 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
   schoolYear,
   station,
   filteredSubjects = [],
+  filteredStations = [],
+  filteredCourses = [],
   selectedStationId,
   selectedSubjectId,
   selectedCourse,
@@ -59,7 +63,9 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
     (filteredSubjects.length > 0 ? filteredSubjects : (station?.subjects || [])).find(s => s.id === selectedSubjectId)
   , [filteredSubjects, station, selectedSubjectId]);
 
-  const currentSubjectCourses = useMemo(() => currentSubject?.courses || [], [currentSubject]);
+  const currentSubjectCourses = useMemo(() => 
+    filteredCourses.length > 0 ? filteredCourses : (currentSubject?.courses || [])
+  , [currentSubject, filteredCourses]);
 
   const { availableLevels, availableAtelierTypes } = useMemo(() => {
     const levels = new Set<string>();
@@ -116,7 +122,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
               onChange={e => onStationChange(e.target.value)}
               className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              {schoolYear?.stations?.map(st => (
+              {(filteredStations.length > 0 ? filteredStations : (schoolYear?.stations || [])).map(st => (
                 <option key={st.id} value={st.id}>{st.name}</option>
               ))}
             </select>

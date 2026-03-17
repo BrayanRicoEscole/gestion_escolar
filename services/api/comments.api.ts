@@ -47,6 +47,21 @@ export const getStudentComments= async (stationId: string): Promise<StudentComme
     }));
   };
 
+export const getStudentYearlyComments = async (studentId: string): Promise<StudentComment[]> => {
+  const { data } = await supabase.from('student_comments').select('*').eq('student_id', studentId);
+  return (data || []).map(c => ({
+    studentId: c.student_id, stationId: c.station_id, convivenciaGrade: c.convivencia_grade,
+    academicCons: c.academic_cons || '', academicNon: c.academic_non || '',
+    emotionalSkills: c.emotional_skills || '', talents: c.talents || '',
+    socialInteraction: c.social_interaction || '', challenges: c.challenges || '',
+    piarDesc: c.piar_desc || '', learning_crop_desc: c.learning_crop_desc || '',
+    comentary: c.comentary || '',
+    comentaryStatus: c.comentary_status || 'draft',
+    comentaryQuality: c.comentary_quality || 0,
+    aiSuggestion: c.ai_suggestion || ''
+  }));
+};
+
 export const saveStudentComment= async (comment: StudentComment): Promise<void> => {
     console.log(`[DB] Guardando comentario para estudiante ${comment.studentId} en estación ${comment.stationId}...`);
     const payload = {

@@ -52,6 +52,8 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     isSaving = false,
     currentSubject,
     filteredSubjects = [],
+    filteredStations = [],
+    filteredCourses = [],
     getGradeValue = () => '',
     getLevelingValue = () => '',
     handleGradeChange = () => {},
@@ -313,6 +315,8 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
         schoolYear={schoolYear}
         station={currentStation}
         filteredSubjects={filteredSubjects}
+        filteredStations={filteredStations}
+        filteredCourses={filteredCourses}
         selectedStationId={selectedStationId}
         selectedSubjectId={selectedSubjectId}
         selectedCourse={selectedCourse}

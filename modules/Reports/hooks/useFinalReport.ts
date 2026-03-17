@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { GradeEntry, Station, Student, SchoolYear } from '../../../types';
+import { GradeEntry, Station, Student, SchoolYear, StudentComment } from '../../../types';
 
 interface StationResult {
   id: string;
@@ -26,7 +26,8 @@ function buildGradesMap(grades: GradeEntry[]) {
 export function useFinalReport(
   schoolYear: SchoolYear | null,
   student: Student | null,
-  allGrades: GradeEntry[]
+  allGrades: GradeEntry[],
+  allComments: StudentComment[] = []
 ) {
   const studentId = student?.id;
 
@@ -51,20 +52,6 @@ export function useFinalReport(
     if (calType === 'A') {
       return schoolYear.stations;
     } else if (calType === 'B') {
-      // Logic for Calendar B: autumn, winter from previous year, spring, summer from current
-      // Since we might not have the previous year easily accessible here, 
-      // we'll look for stations with these names in the current year or mock them if needed.
-      // For now, let's filter the current year's stations that match the names or just take the last 4 if they exist.
-      // The user said: "autumn, winter del año anterior y spring y summer del actual"
-      // In a real scenario, we'd fetch the previous year. 
-      // For this implementation, we'll assume the stations are available or follow the pattern.
-      
-      // Let's try to find stations that match the names
-      const spring = schoolYear.stations.find(s => s.name.toLowerCase().includes('spring'));
-      const summer = schoolYear.stations.find(s => s.name.toLowerCase().includes('summer'));
-      
-      // If we don't find them, we just return all stations for now but labeled correctly
-      // In a real app, we'd need a more robust way to fetch historical data.
       return schoolYear.stations; 
     }
     
@@ -73,8 +60,19 @@ export function useFinalReport(
 
   const finalData = useMemo(() => {
     if (!schoolYear || !student || stations.length === 0) {
-      return { labs: {}, generalAverage: 0 };
+      return { labs: {}, generalAverage: 0, convivenciaResults: [] };
     }
+
+    // Convivencia per station
+    const convivenciaResults = stations.map(station => {
+      const comment = allComments.find(c => c.studentId === studentId && c.stationId === station.id);
+      return {
+        id: station.id,
+        name: station.name,
+        average: comment?.convivenciaGrade || 0,
+        hasData: (comment?.convivenciaGrade || 0) > 0
+      };
+    });
 
     // We need to find all unique subjects across all stations
     const allSubjectsMap = new Map<string, any>();
@@ -104,7 +102,6 @@ export function useFinalReport(
         station.moments.forEach(moment => {
           let momentWeighted = 0;
           let momentWeight = 0;
-          let momentHasData = false;
 
           moment.sections.forEach(section => {
             let sectionScore = 0;
@@ -115,7 +112,6 @@ export function useFinalReport(
               if (entry && entry.value !== null) {
                 sectionScore += entry.value * (slot.weight || 0);
                 sectionWeight += slot.weight || 0;
-                momentHasData = true;
                 hasData = true;
               }
             });
@@ -159,8 +155,8 @@ export function useFinalReport(
       ? validSubjects.reduce((acc, r) => acc + r.finalYearAvg, 0) / validSubjects.length
       : 0;
 
-    return { labs: grouped, generalAverage };
-  }, [schoolYear, student, studentCourseCode, stations, gradesMap, studentId]);
+    return { labs: grouped, generalAverage, convivenciaResults };
+  }, [schoolYear, student, studentCourseCode, stations, gradesMap, studentId, allComments]);
 
   return {
     stations,

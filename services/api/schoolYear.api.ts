@@ -1,6 +1,6 @@
 
 import { supabase } from './client';
-import { SchoolYear, Station, Subject, LearningMoment, Section, GradeSlot } from 'types';
+import { SchoolYear, Station, Subject, LearningMoment, Section, GradeSlot, Student } from 'types';
 import { MOCK_INITIAL_SCHOOL_YEAR } from '../mockInitialData';
 
 /**
@@ -8,6 +8,7 @@ import { MOCK_INITIAL_SCHOOL_YEAR } from '../mockInitialData';
  */
 export const getSchoolYearsList = async (): Promise<{id: string, name: string}[]> => {
   const { data, error } = await supabase
+    .schema('api')
     .from('school_years')
     .select('id, name')
     .order('name', { ascending: false });
@@ -21,7 +22,7 @@ export const getSchoolYearsList = async (): Promise<{id: string, name: string}[]
  */
 export const getSchoolYear = async (yearId?: string): Promise<SchoolYear> => {
   try {
-    let query = supabase.from('school_year_full').select('*');
+    let query = supabase.schema('api').from('school_year_full').select('*');
     
     if (yearId) {
       query = query.eq('id', yearId);
@@ -38,13 +39,14 @@ export const getSchoolYear = async (yearId?: string): Promise<SchoolYear> => {
     // Fetch directo de secciones para asegurar que obtenemos el grading_type
     // incluso si la vista school_year_full no ha sido actualizada
     const { data: sectionsDb } = await supabase
+      .schema('api')
       .from('sections')
       .select('id, grading_type');
 
     const gradingTypeMap = new Map(sectionsDb?.map(s => [s.id, s.grading_type]) || []);
 
     const { data: skillsData } =
-      await supabase.from('subject_skills').select('*');
+      await supabase.schema('api').from('subject_skills').select('*');
 
     return {
       id: yearData.id,
@@ -88,6 +90,7 @@ export const getSchoolYear = async (yearId?: string): Promise<SchoolYear> => {
               courses: sub.courses ?? [],
               modalities: sub.modalities ?? [],
               levels: sub.levels ?? [],
+              station_id: sub.station_id,
               skills:
                 skillsData
                   ?.filter(s => s.subject_id === sub.id)
@@ -114,11 +117,33 @@ const deDuplicateById = <T extends { id: string }>(arr: T[]): T[] => {
   return Array.from(map.values());
 };
 
+/**
+ * Helper para determinar si una materia es relevante para un estudiante
+ */
+export const isSubjectRelevant = (student: Student, subject: Subject): boolean => {
+  const atelierName = (student.atelier || '').toLowerCase();
+  let suffix = 'C';
+  if (atelierName.includes('alhambra')) suffix = 'A';
+  else if (atelierName.includes('mandalay')) suffix = 'MS';
+  else if (atelierName.includes('mónaco') || atelierName.includes('monaco')) suffix = 'M';
+  else if (atelierName.includes('casa')) suffix = 'C';
+
+  const studentCourseCode = `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
+  const levelChar = (student.academic_level || '').charAt(0).toUpperCase();
+
+  return !levelChar || (
+    (subject.courses.length === 0 && subject.levels.length === 0) || 
+    subject.courses.some(c => c.trim().toUpperCase() === studentCourseCode) ||
+    subject.levels.some(l => l.toUpperCase() === levelChar)
+  );
+};
+
 export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
   console.log("[API] Iniciando guardado recursivo de la estructura escolar...");
 
   // 1. Upsert del Año Escolar
   const { error: yearError } = await supabase
+    .schema('api')
     .from('school_years')
     .upsert({ id: year.id, name: year.name });
 
@@ -135,6 +160,7 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
   })));
 
   const { error: stationsError } = await supabase
+    .schema('api')
     .from('stations')
     .upsert(stationsToUpsert);
 
@@ -157,7 +183,8 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
         lab: sub.lab,
         courses: sub.courses ?? [],
         modalities: sub.modalities ?? [],
-        levels: sub.levels ?? []
+        levels: sub.levels ?? [],
+        station_id: st.id
       });
 
       rawStationSubjects.push({
@@ -215,7 +242,7 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
 
   if (rawSubjects.length > 0) {
     const finalSubjects = deDuplicateById(rawSubjects);
-    const { error: subError } = await supabase.from('subjects').upsert(finalSubjects);
+    const { error: subError } = await supabase.schema('api').from('subjects').upsert(finalSubjects);
     if (subError) throw subError;
 
     const uniqueStationSubjects = Array.from(
@@ -223,6 +250,7 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
     );
 
     const { error: relError } = await supabase
+      .schema('api')
       .from('station_subjects')
       .upsert(uniqueStationSubjects);
     
@@ -231,19 +259,19 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
 
   if (rawMoments.length > 0) {
     const finalMoments = deDuplicateById(rawMoments);
-    const { error: momError } = await supabase.from('learning_moments').upsert(finalMoments);
+    const { error: momError } = await supabase.schema('api').from('learning_moments').upsert(finalMoments);
     if (momError) throw momError;
   }
 
   if (rawSections.length > 0) {
     const finalSections = deDuplicateById(rawSections);
-    const { error: secError } = await supabase.from('sections').upsert(finalSections);
+    const { error: secError } = await supabase.schema('api').from('sections').upsert(finalSections);
     if (secError) throw secError;
   }
 
   if (rawSlots.length > 0) {
     const finalSlots = deDuplicateById(rawSlots);
-    const { error: slotError } = await supabase.from('grade_slots').upsert(finalSlots);
+    const { error: slotError } = await supabase.schema('api').from('grade_slots').upsert(finalSlots);
     if (slotError) throw slotError;
   }
 
@@ -257,13 +285,13 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
 
     if (toUpdate.length > 0) {
       console.log(`[DB] Actualizando ${toUpdate.length} habilidades existentes...`);
-      const { error: updateError } = await supabase.from('subject_skills').upsert(toUpdate);
+      const { error: updateError } = await supabase.schema('api').from('subject_skills').upsert(toUpdate);
       if (updateError) throw updateError;
     }
 
     if (toInsert.length > 0) {
       console.log(`[DB] Insertando ${toInsert.length} habilidades nuevas...`);
-      const { error: insertError } = await supabase.from('subject_skills').insert(toInsert);
+      const { error: insertError } = await supabase.schema('api').from('subject_skills').insert(toInsert);
       if (insertError) throw insertError;
     }
   }

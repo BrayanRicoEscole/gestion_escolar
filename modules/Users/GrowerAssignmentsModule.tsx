@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   UserPlus, Trash2, Loader2, Search, Filter, 
   BookOpen, Layers, School, ChevronRight, AlertCircle,
-  UserCog, GraduationCap, MapPin, Plus, Users
+  UserCog, GraduationCap, MapPin, Plus, Users, CheckCircle2
 } from 'lucide-react';
 import { 
   getAllUserProfiles, 
@@ -11,6 +11,7 @@ import {
   getSchoolYearsList,
   getGrowerAssignments,
   createGrowerAssignment,
+  createGrowerAssignments,
   deleteGrowerAssignment
 } from '../../services/api';
 import { UserProfile, SchoolYear, GrowerAssignment, Station, Subject } from '../../types';
@@ -32,8 +33,20 @@ export const GrowerAssignmentsModule: React.FC = () => {
     subject_id: '',
     academic_level: 'Elementary',
     atelier: 'Atelier Casa (C)',
-    course: ''
+    courses: [] as string[]
   });
+
+  const LEVEL_MAP: Record<string, string[]> = {
+    'Petiné': ['C'],
+    'Elementary': ['D', 'E', 'F', 'G'],
+    'Middle': ['H', 'I', 'J', 'K'],
+    'Highschool': ['L', 'M', 'N']
+  };
+
+  const getSuffix = (atelier: string) => {
+    const match = atelier.match(/\(([^)]+)\)/);
+    return match ? match[1] : '';
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -80,20 +93,29 @@ export const GrowerAssignmentsModule: React.FC = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAssignment.grower_id || !newAssignment.station_id || !newAssignment.subject_id || !newAssignment.course) {
-      alert("Por favor completa todos los campos");
+    if (!newAssignment.grower_id || !newAssignment.station_id || !newAssignment.subject_id || newAssignment.courses.length === 0) {
+      alert("Por favor completa todos los campos y selecciona al menos un curso");
       return;
     }
 
     setSaving(true);
     try {
-      await createGrowerAssignment(newAssignment);
+      const assignmentsToCreate = newAssignment.courses.map(course => ({
+        grower_id: newAssignment.grower_id,
+        station_id: newAssignment.station_id,
+        subject_id: newAssignment.subject_id,
+        academic_level: newAssignment.academic_level,
+        atelier: newAssignment.atelier,
+        course: course
+      }));
+
+      await createGrowerAssignments(assignmentsToCreate);
       const updated = await getGrowerAssignments();
       setAssignments(updated);
-      setNewAssignment(prev => ({ ...prev, course: '' }));
+      setNewAssignment(prev => ({ ...prev, courses: [] }));
     } catch (error) {
-      console.error("Error creating assignment:", error);
-      alert("Error al crear la asignación. Es posible que ya exista.");
+      console.error("Error creating assignments:", error);
+      alert("Error al crear las asignaciones. Es posible que algunas ya existan.");
     } finally {
       setSaving(false);
     }
@@ -228,44 +250,137 @@ export const GrowerAssignmentsModule: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nivel</label>
-                  <select 
-                    value={newAssignment.academic_level}
-                    onChange={(e) => setNewAssignment({...newAssignment, academic_level: e.target.value})}
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all text-black"
-                  >
-                    <option value="Petiné">Petiné</option>
-                    <option value="Elementary">Elementary</option>
-                    <option value="Middle">Middle</option>
-                    <option value="Highschool">Highschool</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Atelier</label>
-                  <select 
-                    value={newAssignment.atelier}
-                    onChange={(e) => setNewAssignment({...newAssignment, atelier: e.target.value})}
-                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all text-black"
-                  >
-                    <option value="Atelier Alhambra (A)">Alhambra (A)</option>
-                    <option value="Atelier Casa (C)">Casa (C)</option>
-                    <option value="Atelier Mandalay (MS)">Mandalay (MS)</option>
-                    <option value="Atelier Mónaco (M)">Mónaco (M)</option>
-                  </select>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nivel Académico</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['Petiné', 'Elementary', 'Middle', 'Highschool'] as const).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setNewAssignment({...newAssignment, academic_level: level})}
+                      className={`px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
+                        newAssignment.academic_level === level
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100'
+                          : 'bg-slate-50 border-transparent text-slate-400 hover:bg-white hover:border-slate-200'
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Curso (Código)</label>
-                <input 
-                  type="text"
-                  placeholder="Ej: D-C, E-A, 101..."
-                  value={newAssignment.course}
-                  onChange={(e) => setNewAssignment({...newAssignment, course: e.target.value})}
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Atelier</label>
+                <select 
+                  value={newAssignment.atelier}
+                  onChange={(e) => setNewAssignment({...newAssignment, atelier: e.target.value})}
                   className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all text-black"
-                />
+                >
+                  <option value="Atelier Alhambra (A)">Alhambra (A)</option>
+                  <option value="Atelier Casa (C)">Casa (C)</option>
+                  <option value="Atelier Mandalay (MS)">Mandalay (MS)</option>
+                  <option value="Atelier Mónaco (M)">Mónaco (M)</option>
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Cursos (Grupos)</label>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const subject = currentSubjects.find(s => s.id === newAssignment.subject_id);
+                      const suffix = getSuffix(newAssignment.atelier);
+                      const levelLetters = LEVEL_MAP[newAssignment.academic_level] || [];
+                      
+                      let available: string[] = [];
+                      if (subject?.courses?.length) {
+                        available = subject.courses.filter(c => levelLetters.some(l => c.startsWith(l)) && c.endsWith(`-${suffix}`));
+                      } else {
+                        levelLetters.forEach(l => {
+                          for(let i=1; i<=12; i++) available.push(`${l}${i}-${suffix}`);
+                        });
+                      }
+
+                      const allSelected = available.every(c => newAssignment.courses.includes(c));
+                      setNewAssignment({
+                        ...newAssignment, 
+                        courses: allSelected ? [] : available
+                      });
+                    }}
+                    className="text-[9px] font-black uppercase text-indigo-600 hover:text-indigo-700 transition-colors"
+                  >
+                    {(() => {
+                      const subject = currentSubjects.find(s => s.id === newAssignment.subject_id);
+                      const suffix = getSuffix(newAssignment.atelier);
+                      const levelLetters = LEVEL_MAP[newAssignment.academic_level] || [];
+                      let available: string[] = [];
+                      if (subject?.courses?.length) {
+                        available = subject.courses.filter(c => levelLetters.some(l => c.startsWith(l)) && c.endsWith(`-${suffix}`));
+                      } else {
+                        levelLetters.forEach(l => {
+                          for(let i=1; i<=12; i++) available.push(`${l}${i}-${suffix}`);
+                        });
+                      }
+                      return available.every(c => newAssignment.courses.includes(c)) ? 'Deseleccionar Todos' : 'Seleccionar Todos';
+                    })()}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 max-h-[200px] overflow-y-auto p-1 custom-scrollbar">
+                  {(() => {
+                    const subject = currentSubjects.find(s => s.id === newAssignment.subject_id);
+                    const suffix = getSuffix(newAssignment.atelier);
+                    const levelLetters = LEVEL_MAP[newAssignment.academic_level] || [];
+                    
+                    let available: string[] = [];
+                    if (subject?.courses?.length) {
+                      // Filter subject courses by selected level and atelier
+                      available = subject.courses.filter(c => levelLetters.some(l => c.startsWith(l)) && c.endsWith(`-${suffix}`));
+                    } else {
+                      // Generate standard courses for the level and atelier
+                      levelLetters.forEach(l => {
+                        for(let i=1; i<=12; i++) available.push(`${l}${i}-${suffix}`);
+                      });
+                    }
+
+                    if (available.length === 0) {
+                      return <p className="col-span-4 text-center py-4 text-[10px] font-bold text-slate-300 uppercase">Sin cursos disponibles</p>;
+                    }
+
+                    return available.map(code => {
+                      const active = newAssignment.courses.includes(code);
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => {
+                            setNewAssignment(prev => ({
+                              ...prev,
+                              courses: active 
+                                ? prev.courses.filter(c => c !== code)
+                                : [...prev.courses, code]
+                            }));
+                          }}
+                          className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all border-2 ${
+                            active 
+                              ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                              : 'bg-slate-50 border-transparent text-slate-400 hover:border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          <span className="text-[10px] font-black">{code.split('-')[0]}</span>
+                          <span className="text-[8px] font-bold opacity-60">-{code.split('-')[1]}</span>
+                          {active && (
+                            <div className="absolute -top-1 -right-1 bg-white text-green-500 rounded-full p-0.5 shadow-sm">
+                              <CheckCircle2 size={10} fill="currentColor" className="text-white" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
 
               <button 

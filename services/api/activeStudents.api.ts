@@ -19,11 +19,15 @@ export const getActiveStudents = async (): Promise<Student[]> => {
 
 /**
  * Obtiene estudiantes vinculados a un año escolar específico (Matriculados)
+ * Permite filtrar por niveles y atelier para optimizar la carga
  */
-export const getEnrolledStudents = async (schoolYearId: string): Promise<Student[]> => {
+export const getEnrolledStudents = async (
+  schoolYearId: string, 
+  filters?: { levels?: string[], atelier?: string }
+): Promise<Student[]> => {
   if (!isValidUUID(schoolYearId)) return [];
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('student_academic_records')
     .select(`
       grade,
@@ -37,7 +41,21 @@ export const getEnrolledStudents = async (schoolYearId: string): Promise<Student
     `)
     .eq('school_year_id', schoolYearId);
 
-  if (error) return [];
+  if (filters?.levels && filters.levels.length > 0) {
+    const orFilter = filters.levels.map(l => `academic_level.ilike.${l}%`).join(',');
+    query = query.or(orFilter);
+  }
+
+  if (filters?.atelier && filters.atelier !== 'all') {
+    query = query.ilike('atelier', `%${filters.atelier}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("[API:getEnrolledStudents] Error:", error);
+    return [];
+  }
 
   return (data || [])
     .filter((item: any) => item.students !== null)
