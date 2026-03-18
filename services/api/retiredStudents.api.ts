@@ -3,6 +3,23 @@ import { supabase } from './client';
 import { Student, AcademicRecord } from 'types';
 
 /**
+ * Limpia el nivel académico: toma la primera letra y los números siguientes,
+ * asegurando que siempre tenga un número (ej: C -> C1, M1-RC -> M1)
+ */
+const cleanAcademicLevel = (level: string | undefined): string => {
+  if (!level || level.trim() === '' || level === 'N/A') return 'N/A';
+  // Mantener letra y números iniciales, descartar sufijos de modalidad
+  const match = level.trim().toUpperCase().match(/^[A-Z][0-9]*/);
+  let cleaned = match ? match[0] : 'N/A';
+  
+  // Si es solo una letra, añadir '1' por defecto
+  if (cleaned.length === 1 && cleaned !== 'N/A') {
+    return cleaned + '1';
+  }
+  return cleaned;
+};
+
+/**
  * Obtiene la lista de estudiantes que NO están activos
  */
 export const getRetiredStudents = async (): Promise<Student[]> => {
@@ -40,6 +57,8 @@ export const getStudentAcademicHistory = async (studentId: string): Promise<Acad
       modality: r.modality,
       status: r.status,
       observations: r.observations,
+      start_date: r.start_date,
+      end_date: r.end_date,
       created_at: r.created_at
     }));
   } catch (e) {
@@ -77,7 +96,7 @@ export const retireStudent = async (params: {
       student_id: params.studentId,
       school_year_id: params.schoolYearId,
       grade: params.currentGrade,
-      academic_level: params.currentLevel,
+      academic_level: cleanAcademicLevel(params.currentLevel),
       atelier: params.currentAtelier,
       modality: params.currentModality,
       status: params.status,
@@ -143,12 +162,14 @@ export const updateAcademicRecord = async (recordId: string, data: Partial<Acade
     .from('student_academic_records')
     .update({
       grade: data.grade,
-      academic_level: data.academic_level,
+      academic_level: cleanAcademicLevel(data.academic_level),
       atelier: data.atelier,
       modality: data.modality,
       status: data.status,
       observations: data.observations,
-      created_at: data.created_at
+      created_at: data.created_at,
+      start_date: data.start_date,
+      end_date: data.end_date
     })
     .eq('id', recordId);
 
@@ -206,7 +227,7 @@ export const syncAcademicRecordsFromCSV = async (records: any[]) => {
     student_id: r.student_id,
     school_year_id: r.school_year_id,
     grade: r.grade,
-    academic_level: r.academic_level,
+    academic_level: cleanAcademicLevel(r.academic_level),
     atelier: r.atelier,
     modality: r.modality,
     status: r.status,

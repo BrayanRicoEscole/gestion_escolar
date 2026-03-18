@@ -58,7 +58,7 @@ const MainLayout: React.FC = () => {
         { id: 'comments', name: 'Comentarios', icon: MessageSquareText, visible: true },
         { id: 'station_reports', name: 'Consolidado Estación', icon: ShieldCheck, visible: isSupport },
         { id: 'reports', name: 'Reportes', icon: FileText, visible: isSupport },
-        { id: 'academic_records', name: 'Configuración Año Escolar', icon: History, visible: isSupport },
+        { id: 'academic_records', name: 'Periodos académicos', icon: History, visible: isSupport },
       ]
     },
     {

@@ -65,6 +65,14 @@ export const EditHistoryForm: React.FC<Props> = ({ record, onClose, onSuccess })
               <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Fecha de Registro</label>
               <input name="created_at" type="datetime-local" value={formData.created_at ? new Date(formData.created_at).toISOString().slice(0, 16) : ''} onChange={handleChange} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-sm text-black focus:ring-4 focus:ring-primary/10 outline-none" />
             </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Fecha Inicio</label>
+              <input name="start_date" type="date" value={formData.start_date || ''} onChange={handleChange} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-sm text-black focus:ring-4 focus:ring-primary/10 outline-none" />
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Fecha Fin</label>
+              <input name="end_date" type="date" value={formData.end_date || ''} onChange={handleChange} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold text-sm text-black focus:ring-4 focus:ring-primary/10 outline-none" />
+            </div>
           </div>
 
           <div className="grid grid-cols-5 gap-4 py-4 border-y border-slate-100">

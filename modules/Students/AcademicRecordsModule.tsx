@@ -127,7 +127,7 @@ export const AcademicRecordsModule: React.FC = () => {
             </div>
             <div>
               <h3 className="text-amber-900 font-black text-xl tracking-tight">{stats.upcomingCount} Estudiantes</h3>
-              <p className="text-amber-700/70 font-bold text-sm">Finalizan periodo en los próximos 30 días</p>
+              <p className="text-amber-700/70 font-bold text-sm">Finalizan estación en los próximos 30 días</p>
             </div>
             <button 
               onClick={() => setFilters({...filters, upcomingEnd: true})}

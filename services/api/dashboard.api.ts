@@ -3,7 +3,12 @@ import { Student } from '../../types';
 
 export interface DashboardData {
   students: Student[];
-  academicRecords: { student_id: string; year_name: string }[];
+  academicRecords: { 
+    student_id: string; 
+    year_name: string;
+    end_date: string | null;
+    final_report_sent: boolean;
+  }[];
   availableYears: string[];
   availableModalities: string[];
   availableCourses: string[];
@@ -25,7 +30,7 @@ export const getDashboardData = async (): Promise<DashboardData> => {
   // 2. Fetch academic records to map students to years
   const { data: records, error: recordsError } = await supabase
     .from('student_academic_records')
-    .select('student_id, school_years(name)');
+    .select('student_id, end_date, final_report_sent, school_years(name)');
 
   if (recordsError) {
     console.error("[DEBUG:Dashboard] ❌ Error recuperando registros académicos:", recordsError);
@@ -34,7 +39,9 @@ export const getDashboardData = async (): Promise<DashboardData> => {
 
   const academicRecords = (records || []).map((r: any) => ({
     student_id: r.student_id,
-    year_name: r.school_years?.name || 'N/A'
+    year_name: r.school_years?.name || 'N/A',
+    end_date: r.end_date,
+    final_report_sent: !!r.final_report_sent
   }));
 
   // 3. Extract available filter values

@@ -4,6 +4,23 @@ import { Student } from 'types';
 import { chunkArray, isValidUUID } from './utils';
 
 /**
+ * Limpia el nivel académico: toma la primera letra y los números siguientes,
+ * asegurando que siempre tenga un número (ej: C -> C1, M1-RC -> M1)
+ */
+const cleanAcademicLevel = (level: string | undefined): string => {
+  if (!level || level.trim() === '' || level === 'N/A') return 'N/A';
+  // Mantener letra y números iniciales, descartar sufijos de modalidad
+  const match = level.trim().toUpperCase().match(/^[A-Z][0-9]*/);
+  let cleaned = match ? match[0] : 'N/A';
+  
+  // Si es solo una letra, añadir '1' por defecto
+  if (cleaned.length === 1 && cleaned !== 'N/A') {
+    return cleaned + '1';
+  }
+  return cleaned;
+};
+
+/**
  * Obtiene la lista de estudiantes marcados como Activos
  */
 export const getActiveStudents = async (): Promise<Student[]> => {
@@ -92,7 +109,7 @@ export const enrollStudentsInYear = async (studentData: Student[], schoolYearId:
         id: crypto.randomUUID(),
         document: s.document,
         full_name: s.full_name,
-        academic_level: s.academic_level,
+        academic_level: cleanAcademicLevel(s.academic_level),
         grade: s.grade,
         atelier: s.atelier,
         modality: s.modality,
@@ -132,7 +149,7 @@ export const enrollStudentsInYear = async (studentData: Student[], schoolYearId:
       student_id: s.id,
       school_year_id: schoolYearId,
       grade: s.grade || 'N/A',
-      academic_level: s.academic_level || 'N/A',
+      academic_level: cleanAcademicLevel(s.academic_level),
       atelier: s.atelier || 'N/A',
       modality: s.modality || 'N/A',
       status: 'Matriculado'
@@ -163,19 +180,22 @@ export const promoteStudentsInBulk = async (students: Student[]) => {
   };
   
   const updates = students.map(s => {
-    // Extraer la letra base del nivel (por si viene como C1, D2, etc)
-    const currentLevelChar = (s.academic_level || 'C').charAt(0).toUpperCase();
+    // Extraer la letra base y el número del nivel (ej: M1 -> M, 1)
+    const currentLevel = cleanAcademicLevel(s.academic_level || 'C');
+    const currentLevelChar = currentLevel.charAt(0);
+    const numericPart = currentLevel.substring(1) || '1';
+    
     const currentIndex = levelSequence.indexOf(currentLevelChar);
     
-    let nextLevel = s.academic_level || 'C';
+    let nextLevel = currentLevel;
     let nextGrade = s.grade || 'Pre-Escolar';
     let nextStatus = s.estado_actual || 'Activo';
 
     if (currentIndex !== -1) {
       if (currentIndex < levelSequence.length - 1) {
-        // Promoción normal a la siguiente letra
+        // Promoción normal a la siguiente letra, manteniendo el número de grupo
         const nextChar = levelSequence[currentIndex + 1];
-        nextLevel = nextChar; // Se reinicia a la letra base del siguiente nivel
+        nextLevel = nextChar + numericPart;
         nextGrade = gradeMapping[nextChar];
       } else {
         // Estaba en N (11°), se gradúa
@@ -185,6 +205,7 @@ export const promoteStudentsInBulk = async (students: Student[]) => {
 
     return {
       id: s.id,
+      full_name: s.full_name,
       document: s.document,
       grade: nextGrade,
       academic_level: nextLevel,
@@ -219,7 +240,7 @@ export const retireStudentsInBulk = async (studentIds: string[], reason: string,
         student_id: s.id,
         school_year_id: schoolYearId,
         grade: s.grade,
-        academic_level: s.academic_level,
+        academic_level: cleanAcademicLevel(s.academic_level),
         atelier: s.atelier,
         modality: s.modality,
         status: reason,
@@ -250,7 +271,7 @@ export const syncStudentsFromSpreadsheet = async (
       .map(row => ({
         document: String(row['ID'] || '').trim(),
         full_name: String(row['Seed'] || '').trim(),
-        academic_level: String(row['Grupo'] || '').trim(),
+        academic_level: cleanAcademicLevel(String(row['Grupo'] || '')),
         grade: String(row['Grado'] || '').trim(),
         calendario: String(row['Calendario'] || '').trim(),
         calendario_grupo: String(row['Calendario grupo'] || '').trim(),
@@ -354,9 +375,14 @@ export const syncStudentsFromSpreadsheet = async (
  * Actualiza los datos de un estudiante
  */
 export const updateStudent = async (studentId: string, data: Partial<Student>) => {
+  const payload = { ...data };
+  if (payload.academic_level) {
+    payload.academic_level = cleanAcademicLevel(payload.academic_level);
+  }
+
   const { error } = await supabase
     .from('students')
-    .update(data)
+    .update(payload)
     .eq('id', studentId);
 
   if (error) throw error;

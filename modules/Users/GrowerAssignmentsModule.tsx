@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   UserPlus, Trash2, Loader2, Search, Filter, 
   BookOpen, Layers, School, ChevronRight, AlertCircle,
@@ -25,6 +25,12 @@ export const GrowerAssignmentsModule: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Filters state
+  const [filterYearId, setFilterYearId] = useState('all');
+  const [filterLevel, setFilterLevel] = useState('all');
+  const [filterStationId, setFilterStationId] = useState('all');
+  const [filterGrowerId, setFilterGrowerId] = useState('all');
   
   // Form state
   const [newAssignment, setNewAssignment] = useState({
@@ -131,6 +137,29 @@ export const GrowerAssignmentsModule: React.FC = () => {
       console.error("Error deleting assignment:", error);
     }
   };
+
+  const filteredAssignments = useMemo(() => {
+    return assignments.filter(a => {
+      if (filterYearId !== 'all' && a.school_year_id !== filterYearId) return false;
+      if (filterLevel !== 'all' && a.academic_level !== filterLevel) return false;
+      if (filterStationId !== 'all' && a.station_id !== filterStationId) return false;
+      if (filterGrowerId !== 'all' && a.grower_id !== filterGrowerId) return false;
+      return true;
+    });
+  }, [assignments, filterYearId, filterLevel, filterStationId, filterGrowerId]);
+
+  // Derive unique stations from filtered year or all assignments
+  const filterStations = useMemo(() => {
+    const stationsMap = new Map<string, string>();
+    assignments.forEach(a => {
+      if (filterYearId === 'all' || a.school_year_id === filterYearId) {
+        if (a.station_id && a.station_name) {
+          stationsMap.set(a.station_id, a.station_name);
+        }
+      }
+    });
+    return Array.from(stationsMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [assignments, filterYearId]);
 
   const currentStations = schoolYear?.stations || [];
   const selectedStation = currentStations.find(s => s.id === newAssignment.station_id);
@@ -396,7 +425,64 @@ export const GrowerAssignmentsModule: React.FC = () => {
         </div>
 
         {/* Lista de Asignaciones */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Filtros */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Filtrar por Año</label>
+              <select 
+                value={filterYearId}
+                onChange={(e) => {
+                  setFilterYearId(e.target.value);
+                  setFilterStationId('all'); // Reset station filter when year changes
+                }}
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-indigo-500 transition-all text-black"
+              >
+                <option value="all">Todos los Años</option>
+                {schoolYears.map(y => <option key={y.id} value={y.id}>{y.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Filtrar por Nivel</label>
+              <select 
+                value={filterLevel}
+                onChange={(e) => setFilterLevel(e.target.value)}
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-indigo-500 transition-all text-black"
+              >
+                <option value="all">Todos los Niveles</option>
+                <option value="Petiné">Petiné</option>
+                <option value="Elementary">Elementary</option>
+                <option value="Middle">Middle</option>
+                <option value="Highschool">Highschool</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Filtrar por Estación</label>
+              <select 
+                value={filterStationId}
+                onChange={(e) => setFilterStationId(e.target.value)}
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-indigo-500 transition-all text-black"
+              >
+                <option value="all">Todas las Estaciones</option>
+                {filterStations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Filtrar por Grower</label>
+              <select 
+                value={filterGrowerId}
+                onChange={(e) => setFilterGrowerId(e.target.value)}
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-indigo-500 transition-all text-black"
+              >
+                <option value="all">Todos los Growers</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
+            </div>
+          </div>
+
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -410,17 +496,17 @@ export const GrowerAssignmentsModule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {assignments.length === 0 ? (
+                  {filteredAssignments.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-8 py-20 text-center">
                         <div className="flex flex-col items-center gap-3">
                           <AlertCircle size={40} className="text-slate-200" />
-                          <p className="text-slate-400 font-medium">No hay asignaciones registradas</p>
+                          <p className="text-slate-400 font-medium">No hay asignaciones que coincidan con los filtros</p>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    assignments.map((a) => (
+                    filteredAssignments.map((a) => (
                       <tr key={a.id} className="group hover:bg-slate-50/50 transition-all">
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-3">

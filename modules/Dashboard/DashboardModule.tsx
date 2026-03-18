@@ -156,10 +156,25 @@ export const DashboardModule: React.FC = () => {
       return acc;
     }, {});
 
+    // Academic Alerts
+    const today = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+    const upcomingEndings = data.academicRecords.filter(r => {
+      if (!r.end_date || r.end_date === 'N/A') return false;
+      const d = new Date(r.end_date);
+      return d >= today && d <= thirtyDaysFromNow;
+    });
+
+    const pendingFinalReports = upcomingEndings.filter(r => !r.final_report_sent);
+
     return {
       totalActive: active.length,
       totalRetired: retired.length,
       pazYSalvoCount,
+      upcomingEndingsCount: upcomingEndings.length,
+      pendingFinalReportsCount: pendingFinalReports.length,
       byModality: Object.entries(modalityCounts).map(([label, count]: [string, any]) => ({ label, count })),
       byGrade: Object.entries(gradeCounts).map(([label, count]: [string, any]) => ({ label: `Grado ${label}`, count })),
       byAtelier: Object.entries(atelierCounts).map(([label, count]: [string, any]) => ({ label, count })),
@@ -383,6 +398,46 @@ export const DashboardModule: React.FC = () => {
         </div>
       )}
 
+      {isSupport && (stats.upcomingEndingsCount > 0 || stats.pendingFinalReportsCount > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+          {stats.upcomingEndingsCount > 0 && (
+            <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex items-center gap-6">
+              <div className="w-16 h-16 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
+                <CalendarDays size={32} />
+              </div>
+              <div>
+                <h3 className="text-amber-900 font-black text-xl tracking-tight">{stats.upcomingEndingsCount} Estudiantes</h3>
+                <p className="text-amber-700/70 font-bold text-sm">Finalizan periodo en los próximos 30 días</p>
+              </div>
+              <button 
+                onClick={() => window.location.href = '/academic_records'}
+                className="ml-auto px-6 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-md"
+              >
+                Ver Todos
+              </button>
+            </div>
+          )}
+
+          {stats.pendingFinalReportsCount > 0 && (
+            <div className="bg-rose-50 border border-rose-100 p-6 rounded-[2rem] flex items-center gap-6">
+              <div className="w-16 h-16 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-200">
+                <ShieldAlert size={32} />
+              </div>
+              <div>
+                <h3 className="text-rose-900 font-black text-xl tracking-tight">{stats.pendingFinalReportsCount} Reportes Finales</h3>
+                <p className="text-rose-700/70 font-bold text-sm">Pendientes por enviar para el cierre de año</p>
+              </div>
+              <button 
+                onClick={() => window.location.href = '/academic_records'}
+                className="ml-auto px-6 py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md"
+              >
+                Atender
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {isSupport && (
         <Card className="p-8 mb-10">
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10">
@@ -502,47 +557,45 @@ export const DashboardModule: React.FC = () => {
 
       {/* Secondary Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {isSupport && (
-          <Card className="flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-                <AlertTriangle className="text-amber-500" size={24} /> 
-                Alertas de Notas Pendientes
-              </h3>
-              <button
-                onClick={handleManualCheck}
-                disabled={isCheckingNotifications}
-                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center gap-2"
-              >
-                {isCheckingNotifications ? <Loader2 size={12} className="animate-spin" /> : <TrendingUp size={12} />}
-                Verificar Ahora
-              </button>
-            </div>
-            
-            <div className="flex-1 space-y-4">
-              {notifications.filter(n => n.type === 'warning' || n.type === 'info').slice(0, 5).map((notif) => (
-                <div key={notif.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
-                  <div className={`p-2 rounded-lg shrink-0 ${notif.type === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                    {notif.type === 'warning' ? <AlertTriangle size={16} /> : <Info size={16} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-800 mb-1">{notif.title}</p>
-                    <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{notif.message}</p>
-                    <p className="text-[9px] text-slate-400 mt-2 font-medium">
-                      {format(new Date(notif.created_at), "d 'de' MMMM, HH:mm", { locale: es })}
-                    </p>
-                  </div>
+        <Card className="flex flex-col">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+              <AlertTriangle className="text-amber-500" size={24} /> 
+              Alertas de Notas Pendientes
+            </h3>
+            <button
+              onClick={handleManualCheck}
+              disabled={isCheckingNotifications}
+              className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+              {isCheckingNotifications ? <Loader2 size={12} className="animate-spin" /> : <TrendingUp size={12} />}
+              Verificar Ahora
+            </button>
+          </div>
+          
+          <div className="flex-1 space-y-4">
+            {notifications.filter(n => n.type === 'warning' || n.type === 'info').slice(0, 5).map((notif) => (
+              <div key={notif.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
+                <div className={`p-2 rounded-lg shrink-0 ${notif.type === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                  {notif.type === 'warning' ? <AlertTriangle size={16} /> : <Info size={16} />}
                 </div>
-              ))}
-              {notifications.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                  <ShieldAlert size={48} className="mb-4 opacity-20" />
-                  <p className="text-xs font-bold uppercase tracking-widest">No hay alertas pendientes</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-800 mb-1">{notif.title}</p>
+                  <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{notif.message}</p>
+                  <p className="text-[9px] text-slate-400 mt-2 font-medium">
+                    {format(new Date(notif.created_at), "d 'de' MMMM, HH:mm", { locale: es })}
+                  </p>
                 </div>
-              )}
-            </div>
-          </Card>
-        )}
+              </div>
+            ))}
+            {notifications.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                <ShieldAlert size={48} className="mb-4 opacity-20" />
+                <p className="text-xs font-bold uppercase tracking-widest">No hay alertas pendientes</p>
+              </div>
+            )}
+          </div>
+        </Card>
 
         {isSupport && (
           <Card>
