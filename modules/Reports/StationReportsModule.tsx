@@ -3,10 +3,11 @@ import { useAuth } from '../../context/AuthContext';
 import { getEnrolledStudents } from '../../services/api/activeStudents.api';
 import { getSchoolYearsList, getSchoolYear, isSubjectRelevant } from '../../services/api/schoolYear.api';
 import { getAllStationReports, refreshStationReport, saveStationReport, getYearlyStationReports } from '../../services/api/reports.api';
-import { getStudentYearlyComments } from '../../services/api/comments.api';
+import { getStudentYearlyComments, getStudentComments } from '../../services/api/comments.api';
+import { getGrowerAssignments } from '../../services/api/growerAssignments.api';
 import { Card } from '../../components/ui/Card';
-import { Loader2, RefreshCw, AlertCircle, CheckCircle2, Info, UserCheck, ShieldCheck, Search, Filter, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { Student, SchoolYear, Station, Subject, StationReport, StudentComment } from '../../types';
+import { Loader2, RefreshCw, AlertCircle, CheckCircle2, Info, UserCheck, ShieldCheck, Search, Filter, ChevronLeft, ChevronRight, FileText, Users } from 'lucide-react';
+import { Student, SchoolYear, Station, Subject, StationReport, StudentComment, GrowerAssignment } from '../../types';
 import { YearlySummaryModal } from './components/Preview/YearlySummaryModal';
 
 const ACADEMIC_GROUPS = [
@@ -28,6 +29,8 @@ export const StationReportsModule: React.FC = () => {
   const [selectedStationId, setSelectedStationId] = useState<string>('');
   const [currentYearData, setCurrentYearData] = useState<SchoolYear | null>(null);
   const [reports, setReports] = useState<StationReport[]>([]);
+  const [assignments, setAssignments] = useState<GrowerAssignment[]>([]);
+  const [allComments, setAllComments] = useState<StudentComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [globalRefreshing, setGlobalRefreshing] = useState(false);
@@ -42,6 +45,7 @@ export const StationReportsModule: React.FC = () => {
   const [filterModality, setFilterModality] = useState('all');
   const [filterCalendar, setFilterCalendar] = useState('all');
   const [filterConsolidation, setFilterConsolidation] = useState('all');
+  const [filterGrower, setFilterGrower] = useState('all');
   const [filterEndDate, setFilterEndDate] = useState('');
 
   // Pagination
@@ -105,8 +109,15 @@ export const StationReportsModule: React.FC = () => {
       setStudents(studentsData);
 
       const studentIds = studentsData.map(s => s.id!).filter(Boolean);
-      const reportsData = await getAllStationReports(selectedYearId, selectedStationId, studentIds);
+      const [reportsData, assignmentsData, commentsData] = await Promise.all([
+        getAllStationReports(selectedYearId, selectedStationId, studentIds),
+        getGrowerAssignments(),
+        getStudentComments(selectedStationId)
+      ]);
+      
       setReports(reportsData);
+      setAssignments(assignmentsData.filter(a => a.station_id === selectedStationId));
+      setAllComments(commentsData);
     } catch (error) {
       console.error("Error loading reports data:", error);
     } finally {
@@ -119,21 +130,57 @@ export const StationReportsModule: React.FC = () => {
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       const report = reports.find(r => r.student_id === s.id);
+      const comment = allComments.find(c => c.studentId === s.id);
       const hasGrades = report && Object.values(report.subject_data).some((d: any) => (d.value || 0) > 0);
       const globalAvg = report?.global_average || 0;
 
-      // Check for pending grades (at least one relevant subject missing a grade)
+      // Check for pending grades and assigned growers
       let hasPendingGrades = false;
+      let pendingGrowers = new Set<string>();
+      let assignedGrowers = new Set<string>();
+
+      const studentAtelier = (s.atelier || '').toLowerCase();
+
       if (selectedStation) {
         for (const sub of subjects) {
           if (isSubjectRelevant(s, sub)) {
-            const data = report?.subject_data[sub.id];
-            if (!data || (data.value || 0) <= 0) {
-              hasPendingGrades = true;
-              break;
+            // Find grower assigned to this subject/student
+            const assignment = assignments.find(a => 
+              a.subject_id === sub.id && 
+              a.academic_level === s.academic_level && 
+              studentAtelier.includes((a.atelier || '').toLowerCase())
+            );
+
+            if (assignment) {
+              assignedGrowers.add(assignment.grower_id);
+              
+              const data = report?.subject_data[sub.id];
+              if (!data || (data.value || 0) <= 0) {
+                hasPendingGrades = true;
+                pendingGrowers.add(assignment.grower_id);
+              }
             }
           }
         }
+      }
+
+      const hasPendingComments = !comment || !comment.academicCons || !comment.academicNon || !comment.emotionalSkills;
+      if (hasPendingComments && selectedStation) {
+        const levelAssignments = assignments.filter(a => 
+          a.academic_level === s.academic_level && 
+          studentAtelier.includes((a.atelier || '').toLowerCase())
+        );
+        levelAssignments.forEach(a => {
+          assignedGrowers.add(a.grower_id);
+          pendingGrowers.add(a.grower_id);
+        });
+      } else if (selectedStation) {
+        // Even if comments are not pending, they are assigned to these growers
+        const levelAssignments = assignments.filter(a => 
+          a.academic_level === s.academic_level && 
+          studentAtelier.includes((a.atelier || '').toLowerCase())
+        );
+        levelAssignments.forEach(a => assignedGrowers.add(a.grower_id));
       }
 
       const matchesSearch = s.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -143,6 +190,8 @@ export const StationReportsModule: React.FC = () => {
       const matchesCalendar = filterCalendar === 'all' || s.calendario === filterCalendar;
       
       const matchesEndDate = !filterEndDate || (s.end_date && s.end_date.includes(filterEndDate));
+
+      const matchesGrower = filterGrower === 'all' || assignedGrowers.has(filterGrower);
 
       // Date validation: Student must be active during the station
       let matchesDates = true;
@@ -162,14 +211,15 @@ export const StationReportsModule: React.FC = () => {
       }
 
       const matchesConsolidation = filterConsolidation === 'all' || 
-                                  (filterConsolidation === 'consolidated' && globalAvg >= 3.7) ||
-                                  (filterConsolidation === 'not_consolidated' && globalAvg > 0 && globalAvg < 3.7) ||
-                                  (filterConsolidation === 'pending_grades' && hasPendingGrades) ||
-                                  (filterConsolidation === 'no_grades' && !hasGrades);
+                                   (filterConsolidation === 'consolidated' && globalAvg >= 3.7) ||
+                                   (filterConsolidation === 'not_consolidated' && globalAvg > 0 && globalAvg < 3.7) ||
+                                   (filterConsolidation === 'pending_grades' && hasPendingGrades) ||
+                                   (filterConsolidation === 'pending_comments' && hasPendingComments) ||
+                                   (filterConsolidation === 'no_grades' && !hasGrades);
 
-      return matchesSearch && matchesGrade && matchesModality && matchesCalendar && matchesConsolidation && matchesDates && matchesEndDate;
+      return matchesSearch && matchesGrade && matchesModality && matchesCalendar && matchesConsolidation && matchesDates && matchesEndDate && matchesGrower;
     });
-  }, [students, reports, searchTerm, filterGrade, filterModality, filterCalendar, filterConsolidation, filterEndDate, selectedStation]);
+  }, [students, reports, allComments, searchTerm, filterGrade, filterModality, filterCalendar, filterConsolidation, filterEndDate, filterGrower, selectedStation, subjects, assignments]);
 
   // Paginated students
   const paginatedStudents = useMemo(() => {
@@ -181,19 +231,24 @@ export const StationReportsModule: React.FC = () => {
 
   // Filter options
   const filterOptions = useMemo(() => {
+    const uniqueGrowers = Array.from(new Set(assignments.map(a => JSON.stringify({id: a.grower_id, name: a.grower_name}))))
+      .map(s => JSON.parse(s as string))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
     return {
       grades: Array.from(new Set(students.map(s => s.grade).filter(Boolean))).sort(),
       ateliers: Array.from(new Set(students.map(s => s.atelier).filter(Boolean))).sort(),
       modalities: Array.from(new Set(students.map(s => s.modality).filter(Boolean))).sort(),
       levels: Array.from(new Set(students.map(s => s.academic_level).filter(Boolean))).sort(),
       calendars: Array.from(new Set(students.map(s => s.calendario).filter(Boolean))).sort(),
+      growers: uniqueGrowers
     };
-  }, [students]);
+  }, [students, assignments]);
 
   // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterGrade, filterModality, filterCalendar, filterConsolidation]);
+  }, [searchTerm, filterGrade, filterModality, filterCalendar, filterConsolidation, filterGrower]);
 
   const handleRefresh = async (studentId: string) => {
     if (!selectedStation || !selectedYearId) return;
@@ -437,9 +492,19 @@ export const StationReportsModule: React.FC = () => {
         >
           <option value="all">Todos los Estudiantes</option>
           <option value="pending_grades">Notas Pendientes</option>
+          <option value="pending_comments">Comentarios Pendientes</option>
           <option value="consolidated">Consolidan (≥ 3.7)</option>
           <option value="not_consolidated">No Consolidan (&lt; 3.7)</option>
           <option value="no_grades">Sin Notas</option>
+        </select>
+
+        <select 
+          value={filterGrower}
+          onChange={(e) => setFilterGrower(e.target.value)}
+          className="bg-slate-50 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="all">Todos los Growers</option>
+          {filterOptions.growers.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
 
         <select 
@@ -474,7 +539,29 @@ export const StationReportsModule: React.FC = () => {
                   <th className="p-4 font-black uppercase tracking-widest text-[10px] text-center border-l border-slate-800">Info Académica</th>
                   <th className="p-4 font-black uppercase tracking-widest text-[10px] text-center border-l border-slate-800">Inicio / Cierre</th>
                   {subjects.map(s => (
-                    <th key={s.id} className="p-4 font-black uppercase tracking-widest text-[10px] text-center border-l border-slate-800 min-w-[120px]">{s.name}</th>
+                    <th key={s.id} className="p-4 font-black uppercase tracking-widest text-[10px] text-center border-l border-slate-800 min-w-[120px] relative group/header">
+                      <div className="flex flex-col gap-1">
+                        <span>{s.name}</span>
+                        {assignments.some(a => a.subject_id === s.id) && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/header:block z-50">
+                            <div className="bg-slate-800 text-white text-[9px] py-1.5 px-3 rounded-lg shadow-xl whitespace-nowrap border border-slate-700 font-medium normal-case">
+                              <div className="flex items-center gap-1.5 mb-1 border-b border-slate-700 pb-1">
+                                <Users className="w-3 h-3 text-indigo-400" />
+                                <span className="font-bold uppercase tracking-tighter">Growers Asignados</span>
+                              </div>
+                              {Array.from(new Set(assignments.filter(a => a.subject_id === s.id).map(a => a.grower_name))).map(name => (
+                                <div key={name} className="flex items-center gap-1">
+                                  <div className="w-1 h-1 rounded-full bg-indigo-400" />
+                                  {name}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="w-2 h-2 bg-slate-800 rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2 border-r border-b border-slate-700" />
+                          </div>
+                        )}
+                        <Users className="w-3 h-3 mx-auto text-slate-600 group-hover/header:text-indigo-400 transition-colors cursor-help" />
+                      </div>
+                    </th>
                   ))}
                   <th className="p-4 font-black uppercase tracking-widest text-[10px] text-center border-l border-slate-800 bg-indigo-900">Promedio</th>
                   <th className="p-4 font-black uppercase tracking-widest text-[10px] text-center border-l border-slate-800">Sinc.</th>

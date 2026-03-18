@@ -63,10 +63,12 @@ export const notificationTriggerApi = {
         if (upcoming.length > 0) {
           const title = '📅 Cierres de Periodo Próximos';
           if (!existing?.some(n => n.title === title)) {
+            const names = upcoming.slice(0, 3).map((r: any) => r.students?.full_name).join(', ');
+            const more = upcoming.length > 3 ? ` y ${upcoming.length - 3} más` : '';
             await notificationsApi.createNotification({
               user_id: user.id,
               title,
-              message: `Hay ${upcoming.length} estudiantes que finalizan su periodo académico en los próximos 30 días.`,
+              message: `Estudiantes que finalizan periodo pronto: ${names}${more}. Total: ${upcoming.length}.`,
               type: 'info',
               link: '/academic_records'
             });
@@ -75,10 +77,12 @@ export const notificationTriggerApi = {
         if (pendingReports.length > 0) {
           const title = '⚠️ Reportes Finales Pendientes';
           if (!existing?.some(n => n.title === title)) {
+            const names = pendingReports.slice(0, 3).map((r: any) => r.students?.full_name).join(', ');
+            const more = pendingReports.length > 3 ? ` y ${pendingReports.length - 3} más` : '';
             await notificationsApi.createNotification({
               user_id: user.id,
               title,
-              message: `Hay ${pendingReports.length} reportes finales pendientes por enviar para estudiantes que están por cerrar su periodo.`,
+              message: `Reportes pendientes para: ${names}${more}. Total: ${pendingReports.length}.`,
               type: 'warning',
               link: '/academic_records'
             });
@@ -146,10 +150,14 @@ export const notificationTriggerApi = {
     const isSupport = myProfile?.role === 'support';
     const isGrower = myProfile?.role === 'grower';
     
-    // 5. Get grower assignments to notify specific growers
-    const { data: assignments } = await supabase.from('grower_assignments').select('*');
+    // 5. Get grower assignments and comments
+    const { data: assignments } = await supabase.from('grower_assignments').select(`
+      *,
+      profiles:grower_id(full_name)
+    `);
+    const { data: comments } = await supabase.from('student_comments').select('*');
 
-    // 6. For each active station, check pending grades
+    // 6. For each active station, check pending grades and comments
     for (const station of activeStations) {
       console.log(`[DEBUG:Notifications] Checking station: ${station.name}`);
       
@@ -171,7 +179,8 @@ export const notificationTriggerApi = {
       
       // Group pending
       const growerPendingList: { studentName: string, subjectName: string }[] = [];
-      const supportPendingList: { studentName: string, count: number }[] = [];
+      const supportPendingGrades: { studentName: string, count: number, growers: string[] }[] = [];
+      const supportPendingComments: { studentName: string, growers: string[] }[] = [];
 
       for (const student of students) {
         const relevantSubjects = station.subjects.filter(subject => 
@@ -179,6 +188,7 @@ export const notificationTriggerApi = {
         );
 
         let studentPendingCount = 0;
+        let studentPendingGrowers = new Set<string>();
 
         // Calculate student course code for assignment matching
         const atelierName = (student.atelier || '').toLowerCase();
@@ -196,9 +206,8 @@ export const notificationTriggerApi = {
           if (!hasGrades) {
             studentPendingCount++;
             
-            // Check if this pending grade belongs to the current grower
+            // Find assigned grower
             const assignment = assignments?.find(a => 
-              a.grower_id === user.id &&
               a.subject_id === subject.id && 
               a.station_id === station.id &&
               a.academic_level === student.academic_level &&
@@ -207,25 +216,53 @@ export const notificationTriggerApi = {
             );
 
             if (assignment) {
-              growerPendingList.push({
-                studentName: student.full_name,
-                subjectName: subject.name
-              });
+              studentPendingGrowers.add(assignment.profiles?.full_name || 'Sin asignar');
+              if (assignment.grower_id === user.id) {
+                growerPendingList.push({
+                  studentName: student.full_name,
+                  subjectName: subject.name
+                });
+              }
             }
           }
         }
 
         if (studentPendingCount > 0) {
-          supportPendingList.push({
+          supportPendingGrades.push({
             studentName: student.full_name,
-            count: studentPendingCount
+            count: studentPendingCount,
+            growers: Array.from(studentPendingGrowers)
           });
+        }
+
+        // Check comments
+        const studentComment = comments?.find(c => c.student_id === student.id && c.station_id === station.id);
+        const hasPendingComments = !studentComment || !studentComment.academic_cons || !studentComment.academic_non || !studentComment.emotional_skills;
+        
+        if (hasPendingComments) {
+          const levelAssignments = assignments?.filter(a => 
+            a.station_id === station.id &&
+            a.academic_level === student.academic_level &&
+            a.atelier === student.atelier &&
+            a.course === studentCourseCode
+          ) || [];
+          
+          const commentGrowers = Array.from(new Set(levelAssignments.map(a => a.profiles?.full_name || 'Sin asignar')));
+          supportPendingComments.push({
+            studentName: student.full_name,
+            growers: commentGrowers
+          });
+
+          if (levelAssignments.some(a => a.grower_id === user.id)) {
+            // Add to grower pending list if not already there (maybe with a flag for comment)
+            // For now let's just use the same list or a separate one
+          }
         }
       }
 
       // Notify Current User if Grower
       if (isGrower && growerPendingList.length > 0) {
-        const uniqueStudents = new Set(growerPendingList.map(p => p.studentName)).size;
+        const uniqueStudents = Array.from(new Set(growerPendingList.map(p => p.studentName)));
         const title = '⚠️ Notas Pendientes';
         
         // Check for existing recent notifications
@@ -237,10 +274,12 @@ export const notificationTriggerApi = {
           .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
         if (!existing || existing.length === 0) {
+          const names = uniqueStudents.slice(0, 3).join(', ');
+          const more = uniqueStudents.length > 3 ? ` y ${uniqueStudents.length - 3} más` : '';
           await notificationsApi.createNotification({
             user_id: user.id,
             title,
-            message: `Tienes notas pendientes para ${uniqueStudents} estudiantes en la estación ${station.name}. Por favor revisa el módulo de calificaciones.`,
+            message: `Tienes notas pendientes para: ${names}${more}. Total: ${uniqueStudents.length} estudiantes en ${station.name}.`,
             type: 'warning',
             link: '/grading'
           });
@@ -248,26 +287,47 @@ export const notificationTriggerApi = {
       }
 
       // Notify Current User if Support (Summary)
-      if (isSupport && supportPendingList.length > 0) {
-        const totalPending = supportPendingList.length;
-        const title = '📊 Reporte de Notas Pendientes';
-        
-        // Check for existing recent notifications
-        const { data: existing } = await supabase
-          .from('notifications')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('title', title)
-          .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      if (isSupport) {
+        if (supportPendingGrades.length > 0) {
+          const title = '📊 Reporte de Notas Pendientes';
+          const { data: existing } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('title', title)
+            .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
-        if (!existing || existing.length === 0) {
-          await notificationsApi.createNotification({
-            user_id: user.id,
-            title,
-            message: `Hay ${totalPending} estudiantes con notas pendientes en la estación ${station.name} que cierra el ${new Date(station.endDate).toLocaleDateString()}.`,
-            type: 'info',
-            link: '/station_reports'
-          });
+          if (!existing || existing.length === 0) {
+            const growerNames = Array.from(new Set(supportPendingGrades.flatMap(p => p.growers))).slice(0, 3).join(', ');
+            await notificationsApi.createNotification({
+              user_id: user.id,
+              title,
+              message: `Hay ${supportPendingGrades.length} estudiantes con notas pendientes en ${station.name}. Growers con pendientes: ${growerNames}...`,
+              type: 'info',
+              link: '/station_reports'
+            });
+          }
+        }
+
+        if (supportPendingComments.length > 0) {
+          const title = '💬 Reporte de Comentarios Pendientes';
+          const { data: existing } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('title', title)
+            .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+          if (!existing || existing.length === 0) {
+            const growerNames = Array.from(new Set(supportPendingComments.flatMap(p => p.growers))).slice(0, 3).join(', ');
+            await notificationsApi.createNotification({
+              user_id: user.id,
+              title,
+              message: `Hay ${supportPendingComments.length} estudiantes con comentarios pendientes en ${station.name}. Growers responsables: ${growerNames}...`,
+              type: 'warning',
+              link: '/station_reports'
+            });
+          }
         }
       }
     }
