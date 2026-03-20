@@ -9,6 +9,7 @@ export function useDateLock(station: any) {
     const end = new Date(station.endDate);
     end.setHours(23, 59, 59, 999);
 
-    return now >= start && now <= end;
+    // Locked if current date is NOT within start and end
+    return now < start || now > end;
   }, [station]);
 }

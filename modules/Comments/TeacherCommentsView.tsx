@@ -55,6 +55,8 @@ const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grow
     setSelectedAcademicLevel,
     selectedLevelGroup,
     setSelectedLevelGroup,
+    visibleGroups = [],
+    visibleAteliers = [],
     filteredSubjects = [],
     searchTerm,
     setSearchTerm,
@@ -164,17 +166,34 @@ const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grow
       <div className="flex flex-col gap-4 mb-8">
         {/* Tabs de Grupo Académico */}
         <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
-          {(['Petiné', 'Elementary', 'Middle', 'Highschool'] as const).map((group) => (
+          {visibleGroups.map((group) => (
             <button
-              key={group}
-              onClick={() => setSelectedLevelGroup(group)}
+              key={group.id}
+              onClick={() => setSelectedLevelGroup(group.id)}
               className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
-                selectedLevelGroup === group
+                selectedLevelGroup === group.id
                   ? 'bg-white text-primary shadow-md scale-105'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
               }`}
             >
-              {group}
+              {group.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Tabs de Atelier */}
+        <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
+          {visibleAteliers.map((atelier) => (
+            <button
+              key={atelier}
+              onClick={() => setSelectedAtelier(atelier)}
+              className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+                selectedAtelier === atelier
+                  ? 'bg-primary text-white shadow-md scale-105'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
+              }`}
+            >
+              {atelier === 'all' ? 'Todos los Ateliers' : atelier}
             </button>
           ))}
         </div>
@@ -263,7 +282,6 @@ const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grow
       )}
 
       <GradingFilters
-        // Add missing props allYears, selectedYearId, onYearChange
         allYears={allYears}
         selectedYearId={selectedYearId}
         onYearChange={setSelectedYearId}
@@ -272,10 +290,24 @@ const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grow
         filteredSubjects={filteredSubjects}
         selectedStationId={selectedStationId} 
         selectedSubjectId={selectedSubjectId}
-        selectedCourse={selectedCourse} consolidationFilter="all" selectedAtelier={selectedAtelier} selectedAtelierType={selectedAtelierType}
-        selectedAcademicLevel={selectedAcademicLevel} searchTerm={searchTerm} onStationChange={setSelectedStationId}
-        onSubjectChange={setSelectedSubjectId} onCourseChange={setSelectedCourse} onConsolidationChange={() => {}}
-        onAtelierChange={setSelectedAtelier} onAtelierTypeChange={setSelectedAtelierType} onAcademicLevelChange={setSelectedAcademicLevel} onSearchChange={setSearchTerm}
+        selectedCourse={selectedCourse} 
+        consolidationFilter="all" 
+        selectedAtelier={selectedAtelier} 
+        selectedAtelierType={selectedAtelierType}
+        selectedAcademicLevel={selectedAcademicLevel} 
+        selectedLevelGroup={selectedLevelGroup}
+        searchTerm={searchTerm} 
+        visibleGroups={visibleGroups}
+        visibleAteliers={visibleAteliers}
+        onStationChange={setSelectedStationId}
+        onSubjectChange={setSelectedSubjectId} 
+        onCourseChange={setSelectedCourse} 
+        onConsolidationChange={() => {}}
+        onAtelierChange={setSelectedAtelier} 
+        onAtelierTypeChange={setSelectedAtelierType} 
+        onAcademicLevelChange={setSelectedAcademicLevel} 
+        onLevelGroupChange={setSelectedLevelGroup}
+        onSearchChange={setSearchTerm}
       />
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">

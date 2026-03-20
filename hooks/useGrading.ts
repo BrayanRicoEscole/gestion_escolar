@@ -52,13 +52,75 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const [selectedAtelierType, setSelectedAtelierType] = useState('all')
   const [selectedAcademicLevel, setSelectedAcademicLevel] = useState('all')
   const [selectedCalendar, setSelectedCalendar] = useState('all')
-  const [selectedLevelGroup, setSelectedLevelGroup] = useState<'Petiné' | 'Elementary' | 'Middle' | 'Highschool'>('Petiné');
+  const [selectedLevelGroup, setSelectedLevelGroup] = useState<string | null>(null);
+
+  const normalizedRole = useMemo(() => role?.toLowerCase(), [role]);
+
+  const ACADEMIC_GROUPS = useMemo(() => [
+    { id: 'Petiné', name: 'Petiné', levels: ['C', 'D'] },
+    { id: 'Elementary', name: 'Elementary', levels: ['E', 'F', 'G', 'H'] },
+    { id: 'Middle', name: 'Middle', levels: ['I', 'J', 'K'] },
+    { id: 'Highschool', name: 'Highschool', levels: ['L', 'M', 'N'] },
+  ], []);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
   const [isSaving, setIsSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const ATELIER_TABS = useMemo(() => ['all', 'Mónaco', 'Alhambra', 'Mandalay', 'Casa'], []);
+
+  const visibleGroups = useMemo(() => {
+    if (normalizedRole !== 'grower') return ACADEMIC_GROUPS;
+    if (assignments.length === 0) return [];
+
+    return ACADEMIC_GROUPS.filter(group => {
+      return assignments.some(a => {
+        const aLevel = (a.academic_level || '').toLowerCase().trim();
+        const aCourse = (a.course || '').toLowerCase().trim();
+        
+        // Match by group name
+        if (aLevel === group.id.toLowerCase()) return true;
+        
+        // Match by levels in group
+        return group.levels.some(level => {
+          const l = level.toLowerCase().trim();
+          // Check if assignment level or course starts with this level
+          // e.g. aLevel "elementary" starts with "e"
+          // e.g. aCourse "F1-C" starts with "f"
+          return aLevel.startsWith(l) || aCourse.startsWith(l);
+        });
+      });
+    });
+  }, [normalizedRole, assignments, ACADEMIC_GROUPS]);
+
+  const visibleAteliers = useMemo(() => {
+    if (normalizedRole !== 'grower') return ATELIER_TABS;
+    const assignedAteliers = new Set<string>(['all']);
+    assignments.forEach(a => {
+      if (a.atelier) {
+        const lowerAtelier = a.atelier.toLowerCase();
+        if (lowerAtelier.includes('casa')) assignedAteliers.add('Casa');
+        if (lowerAtelier.includes('alhambra')) assignedAteliers.add('Alhambra');
+        if (lowerAtelier.includes('mandalay')) assignedAteliers.add('Mandalay');
+        if (lowerAtelier.includes('mónaco') || lowerAtelier.includes('monaco')) assignedAteliers.add('Mónaco');
+      }
+    });
+    return ATELIER_TABS.filter(t => assignedAteliers.has(t));
+  }, [normalizedRole, assignments, ATELIER_TABS]);
+
+  // Auto-select first available level group for growers
+  useEffect(() => {
+    if (assignments.length > 0 && normalizedRole === 'grower') {
+      // If current selection is not in visible groups, or if nothing is selected yet
+      const isCurrentValid = selectedLevelGroup && visibleGroups.some(g => g.id === selectedLevelGroup);
+      
+      if (!isCurrentValid && visibleGroups.length > 0) {
+        setSelectedLevelGroup(visibleGroups[0].id);
+      }
+    } else if (selectedLevelGroup === null) {
+      setSelectedLevelGroup('Petiné');
+    }
+  }, [assignments, normalizedRole, selectedLevelGroup, visibleGroups]);
 
   const gradesChannelRef = useRef<any>(null);
   const levelingChannelRef = useRef<any>(null);
@@ -71,13 +133,13 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       try {
         const [years, userAssignments] = await Promise.all([
           getSchoolYearsList(),
-          role === 'grower' && userId ? getGrowerAssignments(userId) : Promise.resolve([])
+          normalizedRole === 'grower' && userId ? getGrowerAssignments(userId) : Promise.resolve([])
         ]);
         
         setAllYears(years);
         setAssignments(userAssignments);
         
-        const initialYears = role === 'grower' && userAssignments.length > 0 
+        const initialYears = normalizedRole === 'grower' && userAssignments.length > 0 
           ? years.filter(y => userAssignments.some(a => a.school_year_id === y.id))
           : years;
 
@@ -89,7 +151,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       }
     };
     fetchInitial();
-  }, [userId, role]);
+  }, [userId, normalizedRole]);
 
   // 2. Carga de estructura y estudiantes al cambiar año
   useEffect(() => {
@@ -140,25 +202,21 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
   const filteredStations = useMemo(() => {
     if (!schoolYear?.stations) return [];
-    if (role !== 'grower') return schoolYear.stations;
+    if (normalizedRole !== 'grower') return schoolYear.stations;
     if (assignments.length === 0) return [];
     const assignedStationIds = new Set(assignments.map(a => a.station_id));
     return schoolYear.stations.filter(s => assignedStationIds.has(s.id));
-  }, [schoolYear, assignments, role]);
+  }, [schoolYear, assignments, normalizedRole]);
 
   const filteredSubjects = useMemo(() => {
     if (!currentStation?.subjects) return [];
     
-    const groupLevels = {
-      'Petiné': ['C'],
-      'Elementary': ['D', 'E', 'F', 'G'],
-      'Middle': ['H', 'I', 'J', 'K'],
-      'Highschool': ['L', 'M', 'N']
-    }[selectedLevelGroup];
+    const group = ACADEMIC_GROUPS.find(g => g.id === selectedLevelGroup);
+    const groupLevels = group?.levels || [];
 
     return currentStation.subjects.filter(subject => {
       // Si es grower, filtrar por sus asignaciones en esta estación
-      if (role === 'grower') {
+      if (normalizedRole === 'grower') {
         if (assignments.length === 0) return false;
         const isAssigned = assignments.some(a => a.station_id === selectedStationId && a.subject_id === subject.id);
         if (!isAssigned) return false;
@@ -172,7 +230,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
         return groupLevels.includes(levelChar);
       });
     });
-  }, [currentStation, selectedLevelGroup]);
+  }, [currentStation, selectedLevelGroup, normalizedRole, assignments, selectedStationId]);
 
   // Auto-seleccionar materia válida al cambiar de grupo de nivel
   useEffect(() => {
@@ -192,7 +250,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
   const filteredCourses = useMemo(() => {
     if (!currentSubject?.courses) return [];
-    if (role !== 'grower') return currentSubject.courses;
+    if (normalizedRole !== 'grower') return currentSubject.courses;
     if (assignments.length === 0) return [];
     
     return currentSubject.courses.filter(course => {
@@ -202,7 +260,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
         a.course === course
       );
     });
-  }, [currentSubject, assignments, role, selectedStationId, selectedSubjectId]);
+  }, [currentSubject, assignments, normalizedRole, selectedStationId, selectedSubjectId]);
 
   /**
    * Ejecuta la importación profunda validando documentos
@@ -262,21 +320,53 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       else if (atelierName.includes('mónaco') || atelierName.includes('monaco')) suffix = 'M';
       else if (atelierName.includes('casa')) suffix = 'C';
 
-      const studentCourseCode = `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
+      const cleanedLevel = (student.academic_level || '').trim().toUpperCase().match(/^[A-Z][0-9]*/)?.[0] || '';
+      const studentCourseCode = `${cleanedLevel}-${suffix}`;
+      const baseLevelChar = cleanedLevel.charAt(0);
       
       // Si es grower, filtrar por sus asignaciones específicas (Nivel, Atelier, Curso)
-      if (role === 'grower') {
+      if (normalizedRole === 'grower') {
         if (assignments.length === 0) return false;
-        if (currentSubject) {
-          const hasAssignmentForThisSubject = assignments.some(a => 
-            a.station_id === selectedStationId && 
-            a.subject_id === currentSubject.id &&
-            a.academic_level === student.academic_level &&
-            a.atelier === student.atelier &&
-            a.course === studentCourseCode
-          );
-          if (!hasAssignmentForThisSubject) return false;
-        }
+        
+        // Check if the student matches ANY of the grower's assignments for the current subject and station
+        const hasAssignmentForThisStudent = assignments.some(a => {
+          const stationMatch = a.station_id === selectedStationId;
+          const subjectMatch = !currentSubject || a.subject_id === currentSubject.id;
+          
+          const aLevelLower = (a.academic_level || '').toLowerCase().trim();
+          const aAtelierLower = (a.atelier || '').toLowerCase().trim();
+          const aCourseLower = (a.course || '').toLowerCase().trim();
+          
+          // Level matching
+          let levelMatch = false;
+          if (!a.academic_level) {
+            levelMatch = true;
+          } else if (aLevelLower === cleanedLevel.toLowerCase()) {
+            levelMatch = true;
+          } else if (a.academic_level.charAt(0).toUpperCase() === baseLevelChar) {
+            levelMatch = true;
+          } else {
+            // Check if assignment is for a group (e.g., "Elementary")
+            const group = ACADEMIC_GROUPS.find(g => g.id.toLowerCase() === aLevelLower);
+            if (group && group.levels.some(l => l.toUpperCase() === baseLevelChar)) {
+              levelMatch = true;
+            }
+          }
+
+          // Atelier matching
+          const atelierMatch = !a.atelier || 
+                             student.atelier.toLowerCase().includes(aAtelierLower) || 
+                             aAtelierLower.includes(student.atelier.toLowerCase());
+
+          // Course matching
+          const courseMatch = !a.course || 
+                            aCourseLower === studentCourseCode.toLowerCase() || 
+                            aCourseLower.startsWith(cleanedLevel.toLowerCase());
+          
+          return stationMatch && subjectMatch && levelMatch && atelierMatch && courseMatch;
+        });
+
+        if (!hasAssignmentForThisStudent) return false;
       }
 
       if (subjectFilter && currentSubject) {
@@ -290,15 +380,12 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       const matchesCalendar = selectedCalendar === 'all' || (student.calendario || 'A') === selectedCalendar;
       
       let matchesLevelGroup = true;
-      const groupLevels = {
-        'Petiné': ['C'],
-        'Elementary': ['D', 'E', 'F', 'G'],
-        'Middle': ['H', 'I', 'J', 'K'],
-        'Highschool': ['L', 'M', 'N']
-      }[selectedLevelGroup];
-      
-      const levelChar = (student.academic_level || '').charAt(0).toUpperCase();
-      matchesLevelGroup = groupLevels.includes(levelChar);
+      if (selectedLevelGroup) {
+        const group = ACADEMIC_GROUPS.find(g => g.id === selectedLevelGroup);
+        const groupLevels = group?.levels || [];
+        const levelChar = (student.academic_level || '').charAt(0).toUpperCase();
+        matchesLevelGroup = groupLevels.includes(levelChar);
+      }
 
       let matchesCourseSelection = true;
 
@@ -534,10 +621,11 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   return {
     isLoading, allYears: filteredYears, selectedYearId, setSelectedYearId, schoolYear, currentStation, currentSubject,
     filteredSubjects, filteredStations, filteredCourses,
-    filteredStudents, paginatedStudents, totalStudents: filteredStudents.length, currentPage, setCurrentPage, pageSize, setPageSize,
+    students, filteredStudents, paginatedStudents, totalStudents: filteredStudents.length, currentPage, setCurrentPage, pageSize, setPageSize,
     selectedStationId, setSelectedStationId, selectedSubjectId, setSelectedSubjectId,
     selectedCourse, setSelectedCourse, selectedAtelier, setSelectedAtelier, selectedAtelierType, setSelectedAtelierType,
     selectedAcademicLevel, setSelectedAcademicLevel, selectedCalendar, setSelectedCalendar, selectedLevelGroup, setSelectedLevelGroup, searchTerm, setSearchTerm, isSaving, grades, skillSelections,
+    visibleGroups, visibleAteliers,
     handleGradeChange, handleLevelingChange, getGradeValue, getLevelingValue, toggleSkillSelection, getSkillSelectionsForStudent,
     bulkImportGradesAndSkills, fetchStudentData, fetchYearStudentData, handleCopyStationData
   };

@@ -47,6 +47,8 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     setSelectedAcademicLevel = () => {},
     selectedLevelGroup = 'all',
     setSelectedLevelGroup = () => {},
+    visibleGroups = [],
+    visibleAteliers = [],
     searchTerm = '',
     setSearchTerm = () => {},
     isSaving = false,
@@ -169,24 +171,24 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
       <div className="flex flex-col gap-4 mb-8">
         {/* Tabs de Grupo Académico para Optimización */}
         <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
-          {(['Petiné', 'Elementary', 'Middle', 'Highschool'] as const).map((group) => (
+          {visibleGroups.map((group) => (
             <button
-              key={group}
-              onClick={() => setSelectedLevelGroup(group)}
+              key={group.id}
+              onClick={() => setSelectedLevelGroup(group.id)}
               className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
-                selectedLevelGroup === group
+                selectedLevelGroup === group.id
                   ? 'bg-white text-primary shadow-md scale-105'
                   : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
               }`}
             >
-              {group}
+              {group.name}
             </button>
           ))}
         </div>
 
         {/* Tabs de Atelier para Optimización de Query */}
         <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
-          {(['all', 'Mónaco', 'Alhambra', 'Mandalay', 'Casa'] as const).map((atelier) => (
+          {visibleAteliers.map((atelier) => (
             <button
               key={atelier}
               onClick={() => setSelectedAtelier(atelier)}
@@ -324,6 +326,7 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
         selectedAtelier={selectedAtelier}
         selectedAtelierType={selectedAtelierType}
         selectedAcademicLevel={selectedAcademicLevel}
+        selectedLevelGroup={selectedLevelGroup}
         searchTerm={searchTerm}
         onStationChange={setSelectedStationId}
         onSubjectChange={setSelectedSubjectId}
@@ -332,7 +335,10 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
         onAtelierChange={setSelectedAtelier}
         onAtelierTypeChange={setSelectedAtelierType}
         onAcademicLevelChange={setSelectedAcademicLevel}
+        onLevelGroupChange={setSelectedLevelGroup}
         onSearchChange={setSearchTerm}
+        visibleGroups={visibleGroups}
+        visibleAteliers={visibleAteliers}
       />
 
       {studentsWithResults.length > 0 ? (

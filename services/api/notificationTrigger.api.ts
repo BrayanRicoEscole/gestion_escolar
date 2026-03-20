@@ -29,11 +29,15 @@ export const notificationTriggerApi = {
       return;
     }
 
-    // 2. Filter upcoming endings
+    // 2. Filter upcoming endings and past due pending reports
     const upcoming = records.filter((r: any) => {
       try {
         const d = new Date(r.end_date);
-        return d >= today && d <= thirtyDaysFromNow;
+        // Upcoming: ends in next 30 days
+        const isUpcoming = d >= today && d <= thirtyDaysFromNow;
+        // Past and pending: ended in the past but report not sent
+        const isPastAndPending = d < today && !r.final_report_sent;
+        return isUpcoming || isPastAndPending;
       } catch {
         return false;
       }
@@ -60,30 +64,32 @@ export const notificationTriggerApi = {
           .eq('user_id', user.id)
           .gt('created_at', yesterday.toISOString());
 
-        if (upcoming.length > 0) {
-          const title = '📅 Cierres de Periodo Próximos';
+        const upcomingEndings = upcoming.filter((r: any) => new Date(r.end_date) >= today);
+
+        if (upcomingEndings.length > 0) {
+          const title = '📅 Próximos Cierres de Año Escolar';
           if (!existing?.some(n => n.title === title)) {
-            const names = upcoming.slice(0, 3).map((r: any) => r.students?.full_name).join(', ');
-            const more = upcoming.length > 3 ? ` y ${upcoming.length - 3} más` : '';
+            const names = upcomingEndings.slice(0, 3).map((r: any) => r.students?.full_name).join(', ');
+            const more = upcomingEndings.length > 3 ? ` y ${upcomingEndings.length - 3} más` : '';
             await notificationsApi.createNotification({
               user_id: user.id,
               title,
-              message: `Estudiantes que finalizan periodo pronto: ${names}${more}. Total: ${upcoming.length}.`,
+              message: `Estudiantes que finalizan su año escolar pronto: ${names}${more}. Total: ${upcomingEndings.length}.`,
               type: 'info',
               link: '/academic_records'
             });
           }
         }
         if (pendingReports.length > 0) {
-          const title = '⚠️ Reportes Finales Pendientes';
+          const title = '⚠️ Reportes de Año Pendientes (Vencidos)';
           if (!existing?.some(n => n.title === title)) {
             const names = pendingReports.slice(0, 3).map((r: any) => r.students?.full_name).join(', ');
             const more = pendingReports.length > 3 ? ` y ${pendingReports.length - 3} más` : '';
             await notificationsApi.createNotification({
               user_id: user.id,
               title,
-              message: `Reportes pendientes para: ${names}${more}. Total: ${pendingReports.length}.`,
-              type: 'warning',
+              message: `Reportes finales de año pendientes para estudiantes con fecha de cierre vencida: ${names}${more}. Total: ${pendingReports.length}.`,
+              type: 'error',
               link: '/academic_records'
             });
           }
@@ -116,14 +122,14 @@ export const notificationTriggerApi = {
     const schoolYear = await getSchoolYear(schoolYears[0].id);
     if (!schoolYear) return;
 
-    // 2. Identify closing stations (closing in next 15 days or recently closed)
+    // 2. Identify closing stations (closing in next 15 days or already closed)
     const now = new Date();
     const activeStations = schoolYear.stations.filter(station => {
       const endDate = new Date(station.endDate);
       const diffTime = endDate.getTime() - now.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      // We check stations that are closing in the next 15 days OR closed in the last 5 days
-      return diffDays <= 15 && diffDays >= -5;
+      // We check stations that are closing in the next 15 days OR ANY station that has already closed
+      return diffDays <= 15;
     });
 
     if (activeStations.length === 0) {
@@ -260,10 +266,13 @@ export const notificationTriggerApi = {
         }
       }
 
+      const isStationClosed = new Date(station.endDate) < new Date();
+
       // Notify Current User if Grower
       if (isGrower && growerPendingList.length > 0) {
         const uniqueStudents = Array.from(new Set(growerPendingList.map(p => p.studentName)));
-        const title = '⚠️ Notas Pendientes';
+        const title = isStationClosed ? '🚨 CRÍTICO: Estación Cerrada con Pendientes' : '⚠️ Notas de Estación Pendientes';
+        const type = isStationClosed ? 'error' : 'warning';
         
         // Check for existing recent notifications
         const { data: existing } = await supabase
@@ -279,8 +288,10 @@ export const notificationTriggerApi = {
           await notificationsApi.createNotification({
             user_id: user.id,
             title,
-            message: `Tienes notas pendientes para: ${names}${more}. Total: ${uniqueStudents.length} estudiantes en ${station.name}.`,
-            type: 'warning',
+            message: isStationClosed 
+              ? `La estación ${station.name} ya cerró y aún tienes notas pendientes para: ${names}${more}.`
+              : `Tienes notas pendientes para: ${names}${more}. Total: ${uniqueStudents.length} estudiantes en ${station.name}.`,
+            type,
             link: '/grading'
           });
         }
@@ -289,7 +300,9 @@ export const notificationTriggerApi = {
       // Notify Current User if Support (Summary)
       if (isSupport) {
         if (supportPendingGrades.length > 0) {
-          const title = '📊 Reporte de Notas Pendientes';
+          const title = isStationClosed ? '🚨 REPORTE CRÍTICO: Notas de Estación Pendientes' : '📊 Reporte de Notas de Estación Pendientes';
+          const type = isStationClosed ? 'error' : 'info';
+          
           const { data: existing } = await supabase
             .from('notifications')
             .select('id')
@@ -302,15 +315,19 @@ export const notificationTriggerApi = {
             await notificationsApi.createNotification({
               user_id: user.id,
               title,
-              message: `Hay ${supportPendingGrades.length} estudiantes con notas pendientes en ${station.name}. Growers con pendientes: ${growerNames}...`,
-              type: 'info',
+              message: isStationClosed
+                ? `¡ALERTA! La estación ${station.name} cerró con ${supportPendingGrades.length} estudiantes con notas incompletas. Growers: ${growerNames}...`
+                : `Hay ${supportPendingGrades.length} estudiantes con notas pendientes en ${station.name}. Growers con pendientes: ${growerNames}...`,
+              type,
               link: '/station_reports'
             });
           }
         }
 
         if (supportPendingComments.length > 0) {
-          const title = '💬 Reporte de Comentarios Pendientes';
+          const title = isStationClosed ? '🚨 REPORTE CRÍTICO: Comentarios de Estación Pendientes' : '💬 Reporte de Comentarios de Estación Pendientes';
+          const type = isStationClosed ? 'error' : 'warning';
+          
           const { data: existing } = await supabase
             .from('notifications')
             .select('id')
@@ -323,8 +340,10 @@ export const notificationTriggerApi = {
             await notificationsApi.createNotification({
               user_id: user.id,
               title,
-              message: `Hay ${supportPendingComments.length} estudiantes con comentarios pendientes en ${station.name}. Growers responsables: ${growerNames}...`,
-              type: 'warning',
+              message: isStationClosed
+                ? `¡ALERTA! La estación ${station.name} cerró con ${supportPendingComments.length} estudiantes con comentarios incompletos. Growers: ${growerNames}...`
+                : `Hay ${supportPendingComments.length} estudiantes con comentarios pendientes en ${station.name}. Growers responsables: ${growerNames}...`,
+              type,
               link: '/station_reports'
             });
           }

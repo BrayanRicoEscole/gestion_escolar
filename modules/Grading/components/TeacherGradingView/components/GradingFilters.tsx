@@ -22,7 +22,10 @@ interface GradingFiltersProps {
   selectedAtelier: string;
   selectedAtelierType: string;
   selectedAcademicLevel: string;
+  selectedLevelGroup: string | null;
   searchTerm: string;
+  visibleGroups: { id: string, name: string }[];
+  visibleAteliers: string[];
   onStationChange: (value: string) => void;
   onSubjectChange: (value: string) => void;
   onCourseChange: (value: string) => void;
@@ -30,6 +33,7 @@ interface GradingFiltersProps {
   onAtelierChange: (value: string) => void;
   onAtelierTypeChange: (value: string) => void;
   onAcademicLevelChange: (value: string) => void;
+  onLevelGroupChange: (value: string) => void;
   onSearchChange: (value: string) => void;
 }
 
@@ -49,7 +53,10 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
   selectedAtelier,
   selectedAtelierType,
   selectedAcademicLevel,
+  selectedLevelGroup,
   searchTerm,
+  visibleGroups = [],
+  visibleAteliers = [],
   onStationChange,
   onSubjectChange,
   onCourseChange,
@@ -57,6 +64,7 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
   onAtelierChange,
   onAtelierTypeChange,
   onAcademicLevelChange,
+  onLevelGroupChange,
   onSearchChange
 }) => {
   const currentSubject = useMemo(() => 
@@ -85,6 +93,23 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
 
   return (
     <div className="space-y-4 mb-8">
+      {/* Selector de Grupo Académico (Tabs) */}
+      <div className="flex gap-2 p-1 bg-slate-100 rounded-3xl w-fit mb-4">
+        {visibleGroups.map(group => (
+          <button
+            key={group.id}
+            onClick={() => onLevelGroupChange(group.id)}
+            className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              selectedLevelGroup === group.id
+                ? 'bg-slate-900 text-white shadow-lg'
+                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {group.name}
+          </button>
+        ))}
+      </div>
+
       {/* Selector de Contexto Global (Año) */}
       <div className="flex items-center gap-4 bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-2xl">
          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-primary shadow-inner border border-white/5">
@@ -154,19 +179,6 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
               ))}
             </select>
           </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Estado Consolidación</label>
-            <select
-              value={consolidationFilter}
-              onChange={e => onConsolidationChange(e.target.value as ConsolidationStatus)}
-              className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
-            >
-              <option value="all">Todos los estados</option>
-              <option value="consolidated">Consolidado (≥ 3.7)</option>
-              <option value="not_consolidated">{"No consolidado (< 3.7)"}</option>
-            </select>
-          </div>
         </div>
       </Card>
 
@@ -188,11 +200,9 @@ export const GradingFilters: React.FC<GradingFiltersProps> = ({
               onChange={e => onAtelierChange(e.target.value)}
               className="bg-slate-50 border-none text-sm font-bold rounded-xl px-4 py-2 text-black outline-none"
             >
-              <option value="all">Todos los Ateliers</option>
-              <option value="Mónaco">Mónaco</option>
-              <option value="Alhambra">Alhambra</option>
-              <option value="Mandalay">Mandalay</option>
-              <option value="Casa">Casa</option>
+              {visibleAteliers.map(atelier => (
+                <option key={atelier} value={atelier}>{atelier === 'all' ? 'Todos los Ateliers' : atelier}</option>
+              ))}
             </select>
           </div>
 

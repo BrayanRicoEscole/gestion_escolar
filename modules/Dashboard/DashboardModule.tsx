@@ -574,14 +574,24 @@ export const DashboardModule: React.FC = () => {
           </div>
           
           <div className="flex-1 space-y-4">
-            {notifications.filter(n => n.type === 'warning' || n.type === 'info').slice(0, 5).map((notif) => (
-              <div key={notif.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4 items-start">
-                <div className={`p-2 rounded-lg shrink-0 ${notif.type === 'warning' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                  {notif.type === 'warning' ? <AlertTriangle size={16} /> : <Info size={16} />}
+            {notifications.filter(n => n.type === 'warning' || n.type === 'info' || n.type === 'error').slice(0, 5).map((notif) => (
+              <div key={notif.id} className={`p-4 rounded-2xl border flex gap-4 items-start ${
+                notif.type === 'error' ? 'bg-red-50 border-red-100' : 
+                notif.type === 'warning' ? 'bg-amber-50 border-amber-100' : 
+                'bg-slate-50 border-slate-100'
+              }`}>
+                <div className={`p-2 rounded-lg shrink-0 ${
+                  notif.type === 'error' ? 'bg-red-100 text-red-600' : 
+                  notif.type === 'warning' ? 'bg-amber-100 text-amber-600' : 
+                  'bg-blue-100 text-blue-600'
+                }`}>
+                  {notif.type === 'error' ? <ShieldAlert size={16} /> : 
+                   notif.type === 'warning' ? <AlertTriangle size={16} /> : 
+                   <Info size={16} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 mb-1">{notif.title}</p>
-                  <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{notif.message}</p>
+                  <p className={`text-xs font-bold mb-1 ${notif.type === 'error' ? 'text-red-800' : 'text-slate-800'}`}>{notif.title}</p>
+                  <p className={`text-[10px] line-clamp-2 leading-relaxed ${notif.type === 'error' ? 'text-red-600' : 'text-slate-500'}`}>{notif.message}</p>
                   <p className="text-[9px] text-slate-400 mt-2 font-medium">
                     {format(new Date(notif.created_at), "d 'de' MMMM, HH:mm", { locale: es })}
                   </p>

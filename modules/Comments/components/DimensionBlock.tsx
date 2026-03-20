@@ -13,7 +13,13 @@ export const DimensionBlock = ({ title, icon, color, fields, current, templates,
           <div key={f.key} className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{f.label}</label>
-              <TemplatePicker templates={templates} fieldKey={f.tKey} level={studentLevel} onSelect={(text: string) => { const prev = current[f.key] || ''; onUpdate(f.key, prev ? `${prev}\n${text}` : text); }} />
+              <TemplatePicker 
+                templates={templates} 
+                fieldKey={f.tKey} 
+                level={studentLevel} 
+                isEditable={isEditable}
+                onSelect={(text: string) => { const prev = current[f.key] || ''; onUpdate(f.key, prev ? `${prev}\n${text}` : text); }} 
+              />
             </div>
             <textarea value={current[f.key] || ''} onChange={e => onUpdate(f.key, e.target.value)} disabled={!isEditable} className="w-full min-h-[120px] p-5 rounded-2xl bg-slate-50 border-none text-black text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all outline-none resize-none shadow-inner" />
           </div>

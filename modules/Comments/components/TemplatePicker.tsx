@@ -6,11 +6,12 @@ interface TemplatePickerProps {
   templates: CommentTemplate[];
   fieldKey: string;
   level?: string;
+  isEditable?: boolean;
   onSelect: (content: string) => void;
 }
 
 export const TemplatePicker: React.FC<TemplatePickerProps> = memo(
-  ({ templates, fieldKey, level, onSelect }) => {
+  ({ templates, fieldKey, level, isEditable = true, onSelect }) => {
     const [isOpen, setIsOpen] = useState(false);
 
     const items = useMemo(() => {
@@ -27,7 +28,8 @@ export const TemplatePicker: React.FC<TemplatePickerProps> = memo(
         <button
           type="button"
           onClick={() => setIsOpen(v => !v)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-[9px] font-black uppercase transition-all"
+          disabled={!isEditable}
+          className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-[9px] font-black uppercase transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles size={12} className="text-amber-500" />
           Plantillas ({items.length})

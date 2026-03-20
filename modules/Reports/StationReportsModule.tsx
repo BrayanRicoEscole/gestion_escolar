@@ -20,8 +20,8 @@ const ACADEMIC_GROUPS = [
 const ATELIER_TABS = ['all', 'Mónaco', 'Alhambra', 'Mandalay', 'Casa'] as const;
 
 export const StationReportsModule: React.FC = () => {
-  const { profile } = useAuth();
-  const isSupport = profile?.role === 'support';
+  const { profile, isProfileLoading } = useAuth();
+  const isSupport = profile?.role?.toLowerCase() === 'support';
 
   const [students, setStudents] = useState<Student[]>([]);
   const [yearsList, setYearsList] = useState<{id: string, name: string}[]>([]);
@@ -36,8 +36,66 @@ export const StationReportsModule: React.FC = () => {
   const [globalRefreshing, setGlobalRefreshing] = useState(false);
 
   // Tabs
-  const [selectedGroupTab, setSelectedGroupTab] = useState<string>('Petiné');
+  const [selectedGroupTab, setSelectedGroupTab] = useState<string | null>(null);
   const [selectedAtelierTab, setSelectedAtelierTab] = useState<string>('all');
+
+  // Visible Groups for Growers
+  const visibleGroups = useMemo(() => {
+    if (!profile) return [];
+    if (isSupport) return ACADEMIC_GROUPS;
+    
+    // Find levels where the grower has assignments in this station
+    const growerAssignments = assignments.filter(a => a.grower_id === profile.id);
+    
+    if (growerAssignments.length === 0) return [];
+
+    return ACADEMIC_GROUPS.filter(group => {
+      return group.levels.some(level => {
+        const cleanLevel = level.toLowerCase().trim();
+        return growerAssignments.some(a => {
+          const assignmentLevel = (a.academic_level || '').toLowerCase().trim();
+          const assignmentCourse = (a.course || '').toLowerCase().trim();
+          
+          // Match if assignmentLevel is the group name (e.g., "Elementary")
+          if (assignmentLevel === group.id.toLowerCase()) return true;
+          
+          // Match if assignmentLevel is a specific level (e.g., "F1") that belongs to this group
+          if (assignmentLevel.startsWith(cleanLevel)) return true;
+          
+          // Match if assignmentCourse starts with a level that belongs to this group
+          if (assignmentCourse.startsWith(cleanLevel)) return true;
+          
+          return false;
+        });
+      });
+    });
+  }, [isSupport, profile, assignments]);
+
+  // Visible Ateliers for Growers
+  const visibleAteliers = useMemo(() => {
+    if (isSupport) return ATELIER_TABS;
+    const growerAssignments = assignments.filter(a => a.grower_id === profile?.id);
+    const ateliers = new Set<string>(['all']);
+    growerAssignments.forEach(a => {
+      if (a.atelier) {
+        const lowerAtelier = a.atelier.toLowerCase();
+        if (lowerAtelier.includes('casa')) ateliers.add('Casa');
+        if (lowerAtelier.includes('alhambra')) ateliers.add('Alhambra');
+        if (lowerAtelier.includes('mandalay')) ateliers.add('Mandalay');
+        if (lowerAtelier.includes('mónaco') || lowerAtelier.includes('monaco')) ateliers.add('Mónaco');
+      }
+    });
+    return ATELIER_TABS.filter(t => ateliers.has(t));
+  }, [isSupport, assignments, profile]);
+
+  // Auto-select first visible group
+  useEffect(() => {
+    if (visibleGroups.length > 0) {
+      if (!selectedGroupTab || !visibleGroups.some(g => g.id === selectedGroupTab)) {
+        setSelectedGroupTab(visibleGroups[0].id);
+      }
+    }
+  }, [visibleGroups, selectedGroupTab]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,7 +154,16 @@ export const StationReportsModule: React.FC = () => {
     }
   }, [selectedYearId, selectedStationId, selectedGroupTab, selectedAtelierTab]);
 
+  useEffect(() => {
+    if (selectedStationId) {
+      getGrowerAssignments().then(data => {
+        setAssignments(data.filter(a => a.station_id === selectedStationId));
+      });
+    }
+  }, [selectedStationId]);
+
   const loadData = async () => {
+    if (!selectedGroupTab || !selectedStationId || !selectedYearId) return;
     setLoading(true);
     try {
       const group = ACADEMIC_GROUPS.find(g => g.id === selectedGroupTab);
@@ -109,14 +176,12 @@ export const StationReportsModule: React.FC = () => {
       setStudents(studentsData);
 
       const studentIds = studentsData.map(s => s.id!).filter(Boolean);
-      const [reportsData, assignmentsData, commentsData] = await Promise.all([
+      const [reportsData, commentsData] = await Promise.all([
         getAllStationReports(selectedYearId, selectedStationId, studentIds),
-        getGrowerAssignments(),
         getStudentComments(selectedStationId)
       ]);
       
       setReports(reportsData);
-      setAssignments(assignmentsData.filter(a => a.station_id === selectedStationId));
       setAllComments(commentsData);
     } catch (error) {
       console.error("Error loading reports data:", error);
@@ -128,7 +193,19 @@ export const StationReportsModule: React.FC = () => {
 
   // Filtered students
   const filteredStudents = useMemo(() => {
-    return students.filter(s => {
+    return students.map(s => {
+      const studentLevel = (s.academic_level || '').toLowerCase().trim();
+      const studentAtelier = (s.atelier || '').toLowerCase().trim();
+      
+      // Check if student belongs to the selected academic group tab
+      const currentGroup = ACADEMIC_GROUPS.find(g => g.id === selectedGroupTab);
+      const matchesGroup = !selectedGroupTab || (currentGroup?.levels.some(level => {
+        const cleanLevel = level.toLowerCase().trim();
+        return studentLevel.includes(cleanLevel) || cleanLevel.includes(studentLevel);
+      }) ?? false);
+
+      if (!matchesGroup) return { ...s, matchesSearch: false, isAssignedToGrower: false };
+
       const report = reports.find(r => r.student_id === s.id);
       const comment = allComments.find(c => c.studentId === s.id);
       const hasGrades = report && Object.values(report.subject_data).some((d: any) => (d.value || 0) > 0);
@@ -139,17 +216,35 @@ export const StationReportsModule: React.FC = () => {
       let pendingGrowers = new Set<string>();
       let assignedGrowers = new Set<string>();
 
-      const studentAtelier = (s.atelier || '').toLowerCase();
+      // Calculate student course code for assignment matching
+      let suffix = 'C';
+      if (studentAtelier.includes('alhambra')) suffix = 'A';
+      else if (studentAtelier.includes('mandalay')) suffix = 'MS';
+      else if (studentAtelier.includes('mónaco') || studentAtelier.includes('monaco')) suffix = 'M';
+      else if (studentAtelier.includes('casa')) suffix = 'C';
+      const studentCourseCode = `${(s.academic_level || '').trim().toUpperCase()}-${suffix}`;
 
       if (selectedStation) {
         for (const sub of subjects) {
           if (isSubjectRelevant(s, sub)) {
             // Find grower assigned to this subject/student
-            const assignment = assignments.find(a => 
-              a.subject_id === sub.id && 
-              a.academic_level === s.academic_level && 
-              studentAtelier.includes((a.atelier || '').toLowerCase())
-            );
+            const assignment = assignments.find(a => {
+              if (a.subject_id !== sub.id) return false;
+
+              const assignmentLevel = (a.academic_level || '').toLowerCase().trim();
+              const assignmentAtelier = (a.atelier || '').toLowerCase().trim();
+              const assignmentCourse = (a.course || '').toLowerCase().trim();
+
+              const levelMatch = !assignmentLevel || 
+                                studentLevel.includes(assignmentLevel) || 
+                                assignmentLevel.includes(studentLevel) ||
+                                (ACADEMIC_GROUPS.find(g => g.id.toLowerCase() === assignmentLevel)?.levels.some(l => studentLevel.toUpperCase().startsWith(l.toUpperCase())) ?? false);
+
+              const atelierMatch = !assignmentAtelier || studentAtelier.includes(assignmentAtelier) || assignmentAtelier.includes(studentAtelier);
+              const courseMatch = !assignmentCourse || studentCourseCode.toLowerCase().includes(assignmentCourse) || assignmentCourse.includes(studentCourseCode.toLowerCase());
+
+              return (levelMatch && atelierMatch) || courseMatch;
+            });
 
             if (assignment) {
               assignedGrowers.add(assignment.grower_id);
@@ -165,22 +260,27 @@ export const StationReportsModule: React.FC = () => {
       }
 
       const hasPendingComments = !comment || !comment.academicCons || !comment.academicNon || !comment.emotionalSkills;
-      if (hasPendingComments && selectedStation) {
-        const levelAssignments = assignments.filter(a => 
-          a.academic_level === s.academic_level && 
-          studentAtelier.includes((a.atelier || '').toLowerCase())
-        );
+      if (selectedStation) {
+        const levelAssignments = assignments.filter(a => {
+          const assignmentLevel = (a.academic_level || '').toLowerCase().trim();
+          const assignmentAtelier = (a.atelier || '').toLowerCase().trim();
+          
+          const levelMatch = !assignmentLevel || 
+                            studentLevel.includes(assignmentLevel) || 
+                            assignmentLevel.includes(studentLevel) ||
+                            (ACADEMIC_GROUPS.find(g => g.id.toLowerCase() === assignmentLevel)?.levels.some(l => studentLevel.toUpperCase().startsWith(l.toUpperCase())) ?? false);
+
+          const atelierMatch = !assignmentAtelier || studentAtelier.includes(assignmentAtelier) || assignmentAtelier.includes(studentAtelier);
+          
+          return levelMatch && atelierMatch;
+        });
+
         levelAssignments.forEach(a => {
           assignedGrowers.add(a.grower_id);
-          pendingGrowers.add(a.grower_id);
+          if (hasPendingComments) {
+            pendingGrowers.add(a.grower_id);
+          }
         });
-      } else if (selectedStation) {
-        // Even if comments are not pending, they are assigned to these growers
-        const levelAssignments = assignments.filter(a => 
-          a.academic_level === s.academic_level && 
-          studentAtelier.includes((a.atelier || '').toLowerCase())
-        );
-        levelAssignments.forEach(a => assignedGrowers.add(a.grower_id));
       }
 
       const matchesSearch = s.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -195,18 +295,26 @@ export const StationReportsModule: React.FC = () => {
 
       // Date validation: Student must be active during the station
       let matchesDates = true;
-      if (selectedStation) {
+      if (selectedStation && selectedStation.startDate && selectedStation.endDate) {
         const stationStart = new Date(selectedStation.startDate);
         const stationEnd = new Date(selectedStation.endDate);
         
-        if (s.start_date) {
-          const studentStart = new Date(s.start_date);
-          if (studentStart > stationEnd) matchesDates = false;
-        }
-        
-        if (s.end_date) {
-          const studentEnd = new Date(s.end_date);
-          if (studentEnd < stationStart) matchesDates = false;
+        if (!isNaN(stationStart.getTime()) && !isNaN(stationEnd.getTime())) {
+          if (s.start_date) {
+            const studentStart = new Date(s.start_date);
+            // Allow 1 day grace period for timezone issues
+            const adjustedStationEnd = new Date(stationEnd);
+            adjustedStationEnd.setDate(adjustedStationEnd.getDate() + 1);
+            if (!isNaN(studentStart.getTime()) && studentStart > adjustedStationEnd) matchesDates = false;
+          }
+          
+          if (s.end_date) {
+            const studentEnd = new Date(s.end_date);
+            // Allow 1 day grace period for timezone issues
+            const adjustedStationStart = new Date(stationStart);
+            adjustedStationStart.setDate(adjustedStationStart.getDate() - 1);
+            if (!isNaN(studentEnd.getTime()) && studentEnd < adjustedStationStart) matchesDates = false;
+          }
         }
       }
 
@@ -217,9 +325,38 @@ export const StationReportsModule: React.FC = () => {
                                    (filterConsolidation === 'pending_comments' && hasPendingComments) ||
                                    (filterConsolidation === 'no_grades' && !hasGrades);
 
-      return matchesSearch && matchesGrade && matchesModality && matchesCalendar && matchesConsolidation && matchesDates && matchesEndDate && matchesGrower;
-    });
-  }, [students, reports, allComments, searchTerm, filterGrade, filterModality, filterCalendar, filterConsolidation, filterEndDate, filterGrower, selectedStation, subjects, assignments]);
+      const isStationClosed = selectedStation ? new Date(selectedStation.endDate) < new Date() : false;
+      const isCritical = isStationClosed && (hasPendingGrades || hasPendingComments);
+
+      const isAssignedToGrower = isSupport || assignedGrowers.has(profile?.id || '');
+
+      return {
+        ...s,
+        hasPendingGrades,
+        hasPendingComments,
+        isCritical,
+        isAssignedToGrower,
+        matchesSearch,
+        matchesGrade,
+        matchesModality,
+        matchesCalendar,
+        matchesConsolidation,
+        matchesDates,
+        matchesEndDate,
+        matchesGrower
+      };
+    }).filter((s: any) => 
+      s.matchesSearch && 
+      s.matchesGrade && 
+      s.matchesModality && 
+      s.matchesCalendar && 
+      s.matchesConsolidation && 
+      s.matchesDates && 
+      s.matchesEndDate && 
+      s.matchesGrower &&
+      s.isAssignedToGrower
+    );
+  }, [students, reports, allComments, searchTerm, filterGrade, filterModality, filterCalendar, filterConsolidation, filterEndDate, filterGrower, selectedStation, subjects, assignments, isSupport, profile, selectedGroupTab]);
 
   // Paginated students
   const paginatedStudents = useMemo(() => {
@@ -362,7 +499,7 @@ export const StationReportsModule: React.FC = () => {
     }
   };
 
-  if (loading && students.length === 0) {
+  if ((loading || isProfileLoading) && students.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <Loader2 className="animate-spin text-indigo-600 w-12 h-12" />
@@ -419,26 +556,38 @@ export const StationReportsModule: React.FC = () => {
 
       {/* Tabs Section */}
       <div className="flex flex-col gap-4 mb-8">
+        {visibleGroups.length === 0 && !isSupport && !isProfileLoading && (
+          <div className="bg-amber-50 border border-amber-100 p-6 rounded-2xl flex flex-col items-center gap-3 text-center">
+            <AlertCircle className="text-amber-500" size={32} />
+            <div>
+              <h3 className="text-amber-800 font-bold">No tienes asignaciones en esta estación</h3>
+              <p className="text-amber-700 text-xs mt-1">Si crees que esto es un error, contacta al equipo de soporte.</p>
+            </div>
+          </div>
+        )}
+
         {/* Tabs de Grupo Académico */}
-        <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
-          {ACADEMIC_GROUPS.map((group) => (
-            <button
-              key={group.id}
-              onClick={() => setSelectedGroupTab(group.id)}
-              className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
-                selectedGroupTab === group.id
-                  ? 'bg-white text-indigo-600 shadow-md scale-105'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
-              }`}
-            >
-              {group.name}
-            </button>
-          ))}
-        </div>
+        {visibleGroups.length > 0 && (
+          <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
+            {visibleGroups.map((group) => (
+              <button
+                key={group.id}
+                onClick={() => setSelectedGroupTab(group.id)}
+                className={`px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+                  selectedGroupTab === group.id
+                    ? 'bg-white text-indigo-600 shadow-md scale-105'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
+                }`}
+              >
+                {group.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Tabs de Atelier */}
         <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-[2rem] w-fit shadow-inner border border-slate-200">
-          {ATELIER_TABS.map((atelier) => (
+          {visibleAteliers.map((atelier) => (
             <button
               key={atelier}
               onClick={() => setSelectedAtelierTab(atelier)}
@@ -498,14 +647,16 @@ export const StationReportsModule: React.FC = () => {
           <option value="no_grades">Sin Notas</option>
         </select>
 
-        <select 
-          value={filterGrower}
-          onChange={(e) => setFilterGrower(e.target.value)}
-          className="bg-slate-50 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="all">Todos los Growers</option>
-          {filterOptions.growers.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-        </select>
+        {isSupport && (
+          <select 
+            value={filterGrower}
+            onChange={(e) => setFilterGrower(e.target.value)}
+            className="bg-slate-50 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="all">Todos los Growers</option>
+            {filterOptions.growers.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        )}
 
         <select 
           value={filterCalendar}
@@ -571,11 +722,18 @@ export const StationReportsModule: React.FC = () => {
                 {paginatedStudents.map(student => {
                   const report = reports.find(r => r.student_id === student.id);
                   return (
-                    <tr key={student.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
-                      <td className="p-4 font-bold text-slate-700 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                    <tr key={student.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors group ${student.isCritical ? 'bg-red-50/30' : ''}`}>
+                      <td className={`p-4 font-bold sticky left-0 z-10 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)] ${student.isCritical ? 'bg-red-50 text-red-700 group-hover:bg-red-100' : 'bg-white text-slate-700 group-hover:bg-slate-50'}`}>
                         <div className="flex flex-col">
-                          <span>{student.full_name}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">{student.document}</span>
+                          <div className="flex items-center gap-2">
+                            <span>{student.full_name}</span>
+                            {student.isCritical && (
+                              <span className="px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-black rounded-full animate-pulse uppercase">
+                                Crítico
+                              </span>
+                            )}
+                          </div>
+                          <span className={`text-[10px] font-medium ${student.isCritical ? 'text-red-400' : 'text-slate-400'}`}>{student.document}</span>
                         </div>
                       </td>
                       <td className="p-4 text-center border-l border-slate-50">
@@ -585,10 +743,10 @@ export const StationReportsModule: React.FC = () => {
                           <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[9px] font-black uppercase">{student.academic_level}</span>
                         </div>
                       </td>
-                      <td className="p-4 text-center border-l border-slate-50">
+                      <td className={`p-4 text-center border-l border-slate-50 ${student.isCritical ? 'bg-red-50/50' : ''}`}>
                         <div className="flex flex-col gap-1 items-center">
-                          <span className="text-[9px] font-bold text-slate-500 uppercase">Inicio: {student.start_date || '—'}</span>
-                          <span className="text-[9px] font-bold text-slate-500 uppercase">Cierre: {student.end_date || '—'}</span>
+                          <span className={`text-[9px] font-bold uppercase ${student.isCritical ? 'text-red-600' : 'text-slate-500'}`}>Inicio: {student.start_date || '—'}</span>
+                          <span className={`text-[9px] font-bold uppercase ${student.isCritical ? 'text-red-700' : 'text-slate-500'}`}>Cierre: {student.end_date || '—'}</span>
                         </div>
                       </td>
                       {subjects.map(subject => {
@@ -604,11 +762,27 @@ export const StationReportsModule: React.FC = () => {
                         }
 
                         const isLow = (data?.value || 0) > 0 && (data?.value || 0) < 3.7;
+                        const studentGrower = student.assignedGrowersBySubject?.[subject.id];
 
                         return (
-                          <td key={subject.id} className="p-2 text-center border-l border-slate-50">
+                          <td key={subject.id} className="p-2 text-center border-l border-slate-50 relative group/cell">
+                            {studentGrower && (
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-50">
+                                <div className="bg-slate-800 text-white text-[9px] py-1.5 px-3 rounded-lg shadow-xl whitespace-nowrap border border-slate-700 font-medium normal-case">
+                                  <div className="flex items-center gap-1.5 mb-1 border-b border-slate-700 pb-1">
+                                    <Users className="w-3 h-3 text-indigo-400" />
+                                    <span className="font-bold uppercase tracking-tighter">Grower Asignado</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1 h-1 rounded-full bg-indigo-400" />
+                                    {studentGrower.name}
+                                  </div>
+                                </div>
+                                <div className="w-2 h-2 bg-slate-800 rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2 border-r border-b border-slate-700" />
+                              </div>
+                            )}
                             {isSupport ? (
-                              <div className="relative group/cell">
+                              <div className="relative group/input">
                                 <input 
                                   type="number"
                                   step="0.1"

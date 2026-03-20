@@ -42,7 +42,8 @@ export const useReportsData = () => {
     else if (atelierName.includes('mónaco') || atelierName.includes('monaco')) suffix = 'M';
     else if (atelierName.includes('casa')) suffix = 'C';
 
-    return `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
+    const cleanedLevel = (student.academic_level || '').trim().toUpperCase().match(/^[A-Z][0-9]*/)?.[0] || '';
+    return `${cleanedLevel}-${suffix}`;
   };
 
   // Validaciones en tiempo real para la pestaña de Estación
@@ -74,7 +75,10 @@ export const useReportsData = () => {
       const studentSubjects = grading.currentStation?.subjects.filter(subject => {
         const allowedCourses = subject.courses || [];
         if (allowedCourses.length === 0) return true; // Materia global
-        return allowedCourses.some(course => course.trim().toUpperCase() === studentCourseCode);
+        return allowedCourses.some(course => {
+          const c = course.trim().toUpperCase();
+          return c === 'TODOS' || c === 'ALL' || studentCourseCode.startsWith(c);
+        });
       }) || [];
 
       // 2. Calcular slots de notas esperados para sus materias

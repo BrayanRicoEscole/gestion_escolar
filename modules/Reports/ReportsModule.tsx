@@ -10,8 +10,9 @@ import { TemplatesTab } from './components/Tabs/TemplatesTab';
 import { SpecialRulesTab } from './components/Tabs/SpecialRulesTab';
 import { AcademicPreviewTable } from './components/Preview/AcademicPreviewTable';
 import { FinalReportTab } from './components/Tabs/FinalReportTab';
+import { GrowersTab } from './components/Tabs/GrowersTab';
 
-type Tab = 'validation' | 'templates' | 'special_rules' | 'final_report';
+type Tab = 'validation' | 'final_report' | 'growers' | 'templates' | 'special_rules';
 
 export const ReportsModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('validation');
@@ -148,6 +149,13 @@ export const ReportsModule: React.FC = () => {
              Certificación Anual
            </TabButton>
            <TabButton 
+             active={activeTab === 'growers'} 
+             onClick={() => setActiveTab('growers')} 
+             icon={ShieldCheck}
+           >
+             Estado Growers
+           </TabButton>
+           <TabButton 
              active={activeTab === 'templates'} 
              onClick={() => setActiveTab('templates')} 
              icon={Settings}
@@ -207,12 +215,14 @@ export const ReportsModule: React.FC = () => {
             />
           )}
 
+          {activeTab === 'growers' && <GrowersTab />}
+
           {activeTab === 'templates' && <TemplatesTab />}
 
           {activeTab === 'special_rules' && <SpecialRulesTab />}
           
           {/* Paginación */}
-          {totalPages > 1 && (
+          {totalPages > 1 && (activeTab === 'validation' || activeTab === 'final_report') && (
             <div className="mt-12 flex flex-col items-center gap-6 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
               <div className="flex items-center gap-8">
                 <button
