@@ -9,9 +9,9 @@ import { getSkillSelections } from '../../../services/api/skills.api';
 import { GrowerAssignment, UserProfile, Student, GradeEntry, StudentComment, SkillSelection } from '../../../types';
 
 const ACADEMIC_GROUPS = [
-  { id: 'Petiné', name: 'Petiné', levels: ['C', 'D'] },
-  { id: 'Elementary', name: 'Elementary', levels: ['E', 'F', 'G', 'H'] },
-  { id: 'Middle', name: 'Middle', levels: ['I', 'J', 'K'] },
+  { id: 'Petiné', name: 'Petiné', levels: ['C'] },
+  { id: 'Elementary', name: 'Elementary', levels: ['D', 'E', 'F', 'G'] },
+  { id: 'Middle', name: 'Middle', levels: ['H', 'I', 'J', 'K'] },
   { id: 'Highschool', name: 'Highschool', levels: ['L', 'M', 'N'] },
 ];
 

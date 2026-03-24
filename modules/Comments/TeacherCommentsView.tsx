@@ -21,6 +21,8 @@ import { generateCommentsTemplateCsv, parseCommentsCsv } from './utils/CommentsC
 
 const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grower' }) => {
   const { profile } = useAuth();
+  console.log('DEBUG: TeacherCommentsView - profile:', { id: profile?.id, role: profile?.role });
+
   // Optimizamos: NO activar realtime de notas y desactivamos el filtro de materia
   const grading = useGrading({ 
     realtime: false, 
@@ -28,6 +30,7 @@ const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grow
     userId: profile?.id,
     role: profile?.role
   });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<any>(null);
 
@@ -61,6 +64,20 @@ const TeacherCommentsView: React.FC<{ userRole?: string }> = ({ userRole = 'grow
     searchTerm,
     setSearchTerm,
   } = grading ?? {};
+
+  React.useEffect(() => {
+    if (!isLoading) {
+      console.log('DEBUG: TeacherCommentsView - grading state:', {
+        selectedYearId,
+        selectedStationId,
+        selectedLevelGroup,
+        selectedAtelier,
+        visibleGroupsCount: visibleGroups.length,
+        visibleAteliersCount: visibleAteliers.length,
+        filteredStudentsCount: filteredStudents.length
+      });
+    }
+  }, [isLoading, selectedYearId, selectedStationId, selectedLevelGroup, selectedAtelier, visibleGroups, visibleAteliers, filteredStudents]);
 
   const isLockedByDate = useDateLock(currentStation);
   const isEditable = !isLockedByDate || isAdmin;

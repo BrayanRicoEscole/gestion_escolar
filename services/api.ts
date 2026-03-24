@@ -10,3 +10,4 @@ export * from './api/auth.api';
 export * from './api/dashboard.api';
 export * from './api/users.api';
 export * from './api/growerAssignments.api';
+export * from './api/reports.api';

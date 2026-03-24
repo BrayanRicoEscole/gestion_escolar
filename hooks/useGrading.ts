@@ -35,14 +35,8 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const [grades, setGrades] = useState<GradeEntry[]>([])
   const [levelingGrades, setLevelingGrades] = useState<LevelingGrade[]>([])
   const [skillSelections, setSkillSelections] = useState<SkillSelection[]>([])
+  const [allAssignments, setAllAssignments] = useState<GrowerAssignment[]>([])
   const [assignments, setAssignments] = useState<GrowerAssignment[]>([])
-
-  const filteredYears = useMemo(() => {
-    if (role !== 'grower') return allYears;
-    if (assignments.length === 0) return [];
-    const assignedYearIds = new Set(assignments.map(a => a.school_year_id));
-    return allYears.filter(y => assignedYearIds.has(y.id));
-  }, [allYears, assignments, role]);
 
   const [selectedStationId, setSelectedStationId] = useState('')
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
@@ -56,10 +50,38 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
   const normalizedRole = useMemo(() => role?.toLowerCase(), [role]);
 
+  const filteredYears = useMemo(() => {
+    if (normalizedRole !== 'grower') return allYears;
+    if (allAssignments.length === 0) return [];
+    const assignedYearIds = new Set(allAssignments.map(a => a.school_year_id));
+    return allYears.filter(y => assignedYearIds.has(y.id));
+  }, [allYears, allAssignments, normalizedRole]);
+
+  // Fetch ALL assignments for the grower to filter years
+  useEffect(() => {
+    if (userId && normalizedRole === 'grower') {
+      getGrowerAssignments(userId).then(data => {
+        console.log('DEBUG: useGrading - allAssignments fetched:', data.length);
+        setAllAssignments(data);
+      });
+    }
+  }, [userId, normalizedRole]);
+
+  // Filter assignments for the current station
+  useEffect(() => {
+    if (selectedStationId && allAssignments.length > 0) {
+      const filtered = allAssignments.filter(a => a.station_id === selectedStationId);
+      console.log('DEBUG: useGrading - assignments for station:', { stationId: selectedStationId, count: filtered.length });
+      setAssignments(filtered);
+    } else if (!selectedStationId) {
+      setAssignments([]);
+    }
+  }, [selectedStationId, allAssignments]);
+
   const ACADEMIC_GROUPS = useMemo(() => [
-    { id: 'Petiné', name: 'Petiné', levels: ['C', 'D'] },
-    { id: 'Elementary', name: 'Elementary', levels: ['E', 'F', 'G', 'H'] },
-    { id: 'Middle', name: 'Middle', levels: ['I', 'J', 'K'] },
+    { id: 'Petiné', name: 'Petiné', levels: ['C'] },
+    { id: 'Elementary', name: 'Elementary', levels: ['D', 'E', 'F', 'G'] },
+    { id: 'Middle', name: 'Middle', levels: ['H', 'I', 'J', 'K'] },
     { id: 'Highschool', name: 'Highschool', levels: ['L', 'M', 'N'] },
   ], []);
 
@@ -203,10 +225,10 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
   const filteredStations = useMemo(() => {
     if (!schoolYear?.stations) return [];
     if (normalizedRole !== 'grower') return schoolYear.stations;
-    if (assignments.length === 0) return [];
-    const assignedStationIds = new Set(assignments.map(a => a.station_id));
+    if (allAssignments.length === 0) return [];
+    const assignedStationIds = new Set(allAssignments.map(a => a.station_id));
     return schoolYear.stations.filter(s => assignedStationIds.has(s.id));
-  }, [schoolYear, assignments, normalizedRole]);
+  }, [schoolYear, allAssignments, normalizedRole]);
 
   const filteredSubjects = useMemo(() => {
     if (!currentStation?.subjects) return [];
@@ -312,7 +334,7 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
 
   const filteredStudents = useMemo(() => {
     if (subjectFilter && !currentSubject) return [];
-    const result = students.filter(student => {
+    const result = students.filter((student, idx) => {
       const atelierName = (student.atelier || '').toLowerCase();
       let suffix = 'C';
       if (atelierName.includes('alhambra')) suffix = 'A';
@@ -326,12 +348,15 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
       
       // Si es grower, filtrar por sus asignaciones específicas (Nivel, Atelier, Curso)
       if (normalizedRole === 'grower') {
-        if (assignments.length === 0) return false;
+        if (assignments.length === 0) {
+          if (idx === 0) console.log('DEBUG: useGrading - No assignments found for grower');
+          return false;
+        }
         
         // Check if the student matches ANY of the grower's assignments for the current subject and station
-        const hasAssignmentForThisStudent = assignments.some(a => {
+        const hasAssignmentForThisStudent = assignments.some((a, aIdx) => {
           const stationMatch = a.station_id === selectedStationId;
-          const subjectMatch = !currentSubject || a.subject_id === currentSubject.id;
+          const subjectMatch = !subjectFilter || !currentSubject || a.subject_id === currentSubject.id;
           
           const aLevelLower = (a.academic_level || '').toLowerCase().trim();
           const aAtelierLower = (a.atelier || '').toLowerCase().trim();
@@ -339,11 +364,11 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
           
           // Level matching
           let levelMatch = false;
-          if (!a.academic_level) {
+          if (!a.academic_level || aLevelLower === 'todos' || aLevelLower === 'all') {
             levelMatch = true;
-          } else if (aLevelLower === cleanedLevel.toLowerCase()) {
+          } else if (aLevelLower === cleanedLevel.toLowerCase() || cleanedLevel.toLowerCase().startsWith(aLevelLower)) {
             levelMatch = true;
-          } else if (a.academic_level.charAt(0).toUpperCase() === baseLevelChar) {
+          } else if (a.academic_level.length === 1 && a.academic_level.toUpperCase() === baseLevelChar) {
             levelMatch = true;
           } else {
             // Check if assignment is for a group (e.g., "Elementary")
@@ -354,19 +379,30 @@ export const useGrading = (options: { realtime?: boolean, subjectFilter?: boolea
           }
 
           // Atelier matching
-          const atelierMatch = !a.atelier || 
+          const atelierMatch = !a.atelier || aAtelierLower === 'todos' || aAtelierLower === 'all' || 
                              student.atelier.toLowerCase().includes(aAtelierLower) || 
                              aAtelierLower.includes(student.atelier.toLowerCase());
 
           // Course matching
-          const courseMatch = !a.course || 
+          const courseMatch = !a.course || aCourseLower === 'todos' || aCourseLower === 'all' || 
                             aCourseLower === studentCourseCode.toLowerCase() || 
-                            aCourseLower.startsWith(cleanedLevel.toLowerCase());
+                            studentCourseCode.toLowerCase().startsWith(aCourseLower);
           
-          return stationMatch && subjectMatch && levelMatch && atelierMatch && courseMatch;
+          const isMatch = stationMatch && subjectMatch && levelMatch && atelierMatch && courseMatch;
+
+          if (isMatch && idx < 5 && aIdx === 0) {
+           
+          }
+
+          return isMatch;
         });
 
-        if (!hasAssignmentForThisStudent) return false;
+        if (!hasAssignmentForThisStudent) {
+          if (idx < 5) {
+            
+          }
+          return false;
+        }
       }
 
       if (subjectFilter && currentSubject) {

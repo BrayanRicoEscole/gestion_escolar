@@ -11,9 +11,9 @@ import { Student, SchoolYear, Station, Subject, StationReport, StudentComment, G
 import { YearlySummaryModal } from './components/Preview/YearlySummaryModal';
 
 const ACADEMIC_GROUPS = [
-  { id: 'Petiné', name: 'Petiné', levels: ['C', 'D'] },
-  { id: 'Elementary', name: 'Elementary', levels: ['E', 'F', 'G', 'H'] },
-  { id: 'Middle', name: 'Middle', levels: ['I', 'J', 'K'] },
+  { id: 'Petiné', name: 'Petiné', levels: ['C'] },
+  { id: 'Elementary', name: 'Elementary', levels: ['D', 'E', 'F', 'G'] },
+  { id: 'Middle', name: 'Middle', levels: ['H', 'I', 'J', 'K'] },
   { id: 'Highschool', name: 'Highschool', levels: ['L', 'M', 'N'] },
 ];
 
@@ -59,13 +59,12 @@ export const StationReportsModule: React.FC = () => {
           // Match if assignmentLevel is the group name (e.g., "Elementary")
           if (assignmentLevel === group.id.toLowerCase()) return true;
           
-          // Match if assignmentLevel is a specific level (e.g., "F1") that belongs to this group
-          if (assignmentLevel.startsWith(cleanLevel)) return true;
-          
-          // Match if assignmentCourse starts with a level that belongs to this group
-          if (assignmentCourse.startsWith(cleanLevel)) return true;
-          
-          return false;
+          // Clean the assignment level/course to get the base level (e.g., "h1-ms" -> "h1")
+          const cleanAssignmentLevel = assignmentLevel.match(/^[a-z][0-9]*/)?.[0] || assignmentLevel;
+          const cleanAssignmentCourse = assignmentCourse.match(/^[a-z][0-9]*/)?.[0] || assignmentCourse;
+
+          // Match if assignmentLevel or assignmentCourse starts with a level that belongs to this group
+          return cleanAssignmentLevel.startsWith(cleanLevel) || cleanAssignmentCourse.startsWith(cleanLevel);
         });
       });
     });
@@ -76,6 +75,7 @@ export const StationReportsModule: React.FC = () => {
     if (isSupport) return ATELIER_TABS;
     const growerAssignments = assignments.filter(a => a.grower_id === profile?.id);
     const ateliers = new Set<string>(['all']);
+    
     growerAssignments.forEach(a => {
       if (a.atelier) {
         const lowerAtelier = a.atelier.toLowerCase();
@@ -85,6 +85,7 @@ export const StationReportsModule: React.FC = () => {
         if (lowerAtelier.includes('mónaco') || lowerAtelier.includes('monaco')) ateliers.add('Mónaco');
       }
     });
+
     return ATELIER_TABS.filter(t => ateliers.has(t));
   }, [isSupport, assignments, profile]);
 
@@ -157,7 +158,8 @@ export const StationReportsModule: React.FC = () => {
   useEffect(() => {
     if (selectedStationId) {
       getGrowerAssignments().then(data => {
-        setAssignments(data.filter(a => a.station_id === selectedStationId));
+        const filtered = data.filter(a => a.station_id === selectedStationId);
+        setAssignments(filtered);
       });
     }
   }, [selectedStationId]);
@@ -201,7 +203,7 @@ export const StationReportsModule: React.FC = () => {
       const currentGroup = ACADEMIC_GROUPS.find(g => g.id === selectedGroupTab);
       const matchesGroup = !selectedGroupTab || (currentGroup?.levels.some(level => {
         const cleanLevel = level.toLowerCase().trim();
-        return studentLevel.includes(cleanLevel) || cleanLevel.includes(studentLevel);
+        return studentLevel.startsWith(cleanLevel);
       }) ?? false);
 
       if (!matchesGroup) return { ...s, matchesSearch: false, isAssignedToGrower: false };
@@ -222,7 +224,14 @@ export const StationReportsModule: React.FC = () => {
       else if (studentAtelier.includes('mandalay')) suffix = 'MS';
       else if (studentAtelier.includes('mónaco') || studentAtelier.includes('monaco')) suffix = 'M';
       else if (studentAtelier.includes('casa')) suffix = 'C';
-      const studentCourseCode = `${(s.academic_level || '').trim().toUpperCase()}-${suffix}`;
+
+      const rawLevel = (s.academic_level || '').trim().toUpperCase();
+      const match = rawLevel.match(/^[A-Z][0-9]*/);
+      let cleanedLevel = match ? match[0] : 'N/A';
+      if (cleanedLevel.length === 1 && cleanedLevel !== 'N/A') cleanedLevel += '1';
+      
+      const studentLevelClean = cleanedLevel.toLowerCase();
+      const studentCourseCode = `${cleanedLevel}-${suffix}`;
 
       if (selectedStation) {
         for (const sub of subjects) {
@@ -236,12 +245,16 @@ export const StationReportsModule: React.FC = () => {
               const assignmentCourse = (a.course || '').toLowerCase().trim();
 
               const levelMatch = !assignmentLevel || 
-                                studentLevel.includes(assignmentLevel) || 
-                                assignmentLevel.includes(studentLevel) ||
-                                (ACADEMIC_GROUPS.find(g => g.id.toLowerCase() === assignmentLevel)?.levels.some(l => studentLevel.toUpperCase().startsWith(l.toUpperCase())) ?? false);
+                                studentLevelClean.includes(assignmentLevel) || 
+                                assignmentLevel.includes(studentLevelClean) ||
+                                (ACADEMIC_GROUPS.find(g => g.id.toLowerCase() === assignmentLevel)?.levels.some(l => studentLevelClean.startsWith(l.toLowerCase())) ?? false);
 
               const atelierMatch = !assignmentAtelier || studentAtelier.includes(assignmentAtelier) || assignmentAtelier.includes(studentAtelier);
-              const courseMatch = !assignmentCourse || studentCourseCode.toLowerCase().includes(assignmentCourse) || assignmentCourse.includes(studentCourseCode.toLowerCase());
+              const courseMatch = !assignmentCourse || 
+                                 studentCourseCode.toLowerCase().includes(assignmentCourse) || 
+                                 assignmentCourse.includes(studentCourseCode.toLowerCase()) ||
+                                 rawLevel.toLowerCase().includes(assignmentCourse) ||
+                                 assignmentCourse.includes(rawLevel.toLowerCase());
 
               return (levelMatch && atelierMatch) || courseMatch;
             });
@@ -261,21 +274,27 @@ export const StationReportsModule: React.FC = () => {
 
       const hasPendingComments = !comment || !comment.academicCons || !comment.academicNon || !comment.emotionalSkills;
       if (selectedStation) {
-        const levelAssignments = assignments.filter(a => {
+        const relevantAssignments = assignments.filter(a => {
           const assignmentLevel = (a.academic_level || '').toLowerCase().trim();
           const assignmentAtelier = (a.atelier || '').toLowerCase().trim();
+          const assignmentCourse = (a.course || '').toLowerCase().trim();
           
           const levelMatch = !assignmentLevel || 
-                            studentLevel.includes(assignmentLevel) || 
-                            assignmentLevel.includes(studentLevel) ||
-                            (ACADEMIC_GROUPS.find(g => g.id.toLowerCase() === assignmentLevel)?.levels.some(l => studentLevel.toUpperCase().startsWith(l.toUpperCase())) ?? false);
+                            studentLevelClean.includes(assignmentLevel) || 
+                            assignmentLevel.includes(studentLevelClean) ||
+                            (ACADEMIC_GROUPS.find(g => g.id.toLowerCase() === assignmentLevel)?.levels.some(l => studentLevelClean.startsWith(l.toLowerCase())) ?? false);
 
           const atelierMatch = !assignmentAtelier || studentAtelier.includes(assignmentAtelier) || assignmentAtelier.includes(studentAtelier);
+          const courseMatch = !assignmentCourse || 
+                             studentCourseCode.toLowerCase().includes(assignmentCourse) || 
+                             assignmentCourse.includes(studentCourseCode.toLowerCase()) ||
+                             rawLevel.toLowerCase().includes(assignmentCourse) ||
+                             assignmentCourse.includes(rawLevel.toLowerCase());
           
-          return levelMatch && atelierMatch;
+          return (levelMatch && atelierMatch) || courseMatch;
         });
 
-        levelAssignments.forEach(a => {
+        relevantAssignments.forEach(a => {
           assignedGrowers.add(a.grower_id);
           if (hasPendingComments) {
             pendingGrowers.add(a.grower_id);
@@ -284,7 +303,7 @@ export const StationReportsModule: React.FC = () => {
       }
 
       const matchesSearch = s.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           s.document.includes(searchTerm);
+                           s.document?.includes(searchTerm);
       const matchesGrade = filterGrade === 'all' || s.grade === filterGrade;
       const matchesModality = filterModality === 'all' || s.modality === filterModality;
       const matchesCalendar = filterCalendar === 'all' || s.calendario === filterCalendar;
@@ -553,6 +572,21 @@ export const StationReportsModule: React.FC = () => {
           {isSupport && " Como Support, puedes editar los valores finales para aplicar nivelaciones; estas notas se marcarán en naranja y no se recalcularán automáticamente."}</p>
         </div>
       </div>
+
+      {!isSupport && profile && assignments.some(a => a.grower_id === profile.id) && (
+        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl flex flex-wrap gap-2 items-center">
+          <ShieldCheck className="text-indigo-500" size={18} />
+          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 mr-2">Tus Asignaciones:</span>
+          {assignments
+            .filter(a => a.grower_id === profile.id)
+            .map((a, idx) => (
+              <span key={idx} className="bg-white px-3 py-1 rounded-full text-[9px] font-bold text-indigo-600 border border-indigo-200 shadow-sm">
+                {a.course || a.academic_level || 'Materia Específica'} 
+                {a.subject_id && ` (${subjects.find(s => s.id === a.subject_id)?.name || 'Materia'})`}
+              </span>
+            ))}
+        </div>
+      )}
 
       {/* Tabs Section */}
       <div className="flex flex-col gap-4 mb-8">

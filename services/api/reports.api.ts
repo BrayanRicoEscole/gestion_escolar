@@ -221,3 +221,64 @@ export const getYearlyStationReports = async (
   }
   return data || [];
 };
+
+export interface PendingGrade {
+  idx: number;
+  student_id: string;
+  student_name: string;
+  subject_id: string;
+  subject_name: string;
+  station_id: string;
+  station_name: string;
+  start_date: string;
+  end_date: string;
+  days_to_close: number;
+  completed_slots: number;
+  total_slots: number;
+  progress_percentage: string;
+}
+
+export const getPendingGrades = async (): Promise<PendingGrade[]> => {
+  const { data, error } = await supabase
+    .from('v_student_pending_grades')
+    .select('*')
+    .order('end_date', { ascending: true })
+    .order('student_name', { ascending: true });
+
+  if (error) {
+    console.error("[Reports API] Error in getPendingGrades:", error);
+    throw error;
+  }
+  return data || [];
+};
+
+export interface GrowerPendingGrade {
+  idx: number;
+  grower_id: string;
+  grower_name: string;
+  station_id: string;
+  station_name: string;
+  start_date: string;
+  end_date: string;
+  subject_id: string;
+  subject_name: string;
+  academic_level: string;
+  course: string;
+  total_students: number;
+  students_without_grades: number;
+  students_incomplete: number;
+  avg_progress: string;
+}
+
+export const getGrowersPendingGrades = async (): Promise<GrowerPendingGrade[]> => {
+  const { data, error } = await supabase
+    .from('v_growers_pending_grades')
+    .select('*')
+    .order('grower_name', { ascending: true });
+
+  if (error) {
+    console.error("[Reports API] Error in getGrowersPendingGrades:", error);
+    throw error;
+  }
+  return data || [];
+};

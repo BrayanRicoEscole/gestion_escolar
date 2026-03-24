@@ -10,11 +10,14 @@ import { generateGradesTemplateCsv, parseGradesCsv } from '../../utils/GradesCsv
 
 const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'grower' }) => {
   const { profile } = useAuth();
+  console.log('DEBUG: TeacherGradingView - profile:', { id: profile?.id, role: profile?.role });
+
   const grading = useGrading({ 
     realtime: true,
     userId: profile?.id,
     role: profile?.role
   });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<any>(null);
 
@@ -64,6 +67,22 @@ const TeacherGradingView: React.FC<{ userRole?: string }> = ({ userRole = 'growe
     getSkillSelectionsForStudent = () => [],
     bulkImportGradesAndSkills
   } = grading ?? {};
+
+  useEffect(() => {
+    if (!isLoading) {
+      console.log('DEBUG: TeacherGradingView - grading state:', {
+        selectedYearId,
+        selectedStationId,
+        selectedSubjectId,
+        selectedLevelGroup,
+        selectedAtelier,
+        visibleGroupsCount: visibleGroups.length,
+        visibleAteliersCount: visibleAteliers.length,
+        filteredStudentsCount: filteredStudents.length,
+        totalStudents
+      });
+    }
+  }, [isLoading, selectedYearId, selectedStationId, selectedSubjectId, selectedLevelGroup, selectedAtelier, visibleGroups, visibleAteliers, filteredStudents, totalStudents]);
 
   const [collapsedMoments, setCollapsedMoments] = useState<Set<string>>(new Set());
 

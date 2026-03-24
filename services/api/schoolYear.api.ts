@@ -103,7 +103,7 @@ export const getSchoolYear = async (yearId?: string): Promise<SchoolYear> => {
         }))
     };
   } catch (e) {
-    console.warn("[API] Error cargando estructura, ID:", yearId, e);
+    
     return MOCK_INITIAL_SCHOOL_YEAR;
   }
 };
@@ -128,18 +128,37 @@ export const isSubjectRelevant = (student: Student, subject: Subject): boolean =
   else if (atelierName.includes('mónaco') || atelierName.includes('monaco')) suffix = 'M';
   else if (atelierName.includes('casa')) suffix = 'C';
 
-  const studentCourseCode = `${(student.academic_level || '').trim().toUpperCase()}-${suffix}`;
-  const levelChar = (student.academic_level || '').charAt(0).toUpperCase();
+  // Limpiar el nivel académico para evitar duplicación de sufijos (ej: H1-MS -> H1)
+  const rawLevel = (student.academic_level || '').trim().toUpperCase();
+  const match = rawLevel.match(/^[A-Z][0-9]*/);
+  let cleanedLevel = match ? match[0] : 'N/A';
+  
+  // Asegurar que tenga número si es solo una letra
+  if (cleanedLevel.length === 1 && cleanedLevel !== 'N/A') {
+    cleanedLevel += '1';
+  }
 
-  return !levelChar || (
+  const studentCourseCode = `${cleanedLevel}-${suffix}`;
+  const levelChar = cleanedLevel.charAt(0).toUpperCase();
+
+  const isRelevant = !levelChar || levelChar === 'N' || (
     (subject.courses.length === 0 && subject.levels.length === 0) || 
-    subject.courses.some(c => c.trim().toUpperCase() === studentCourseCode) ||
+    subject.courses.some(c => {
+      const cleanC = c.trim().toUpperCase();
+      return cleanC === studentCourseCode || cleanC === rawLevel;
+    }) ||
     subject.levels.some(l => l.toUpperCase() === levelChar)
   );
+
+  if (student.full_name.toLowerCase().includes('shalome')) {
+
+  }
+
+  return isRelevant;
 };
 
 export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
-  console.log("[API] Iniciando guardado recursivo de la estructura escolar...");
+ 
 
   // 1. Upsert del Año Escolar
   const { error: yearError } = await supabase
@@ -276,7 +295,7 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
   }
 
   if (rawSkills.length > 0) {
-    console.log(`[DB] Procesando ${rawSkills.length} habilidades...`);
+    
     
     // De-duplicar habilidades con ID (las que se van a actualizar)
     const toUpdate = deDuplicateById(rawSkills.filter(s => s.id));
@@ -284,13 +303,12 @@ export const updateSchoolYear = async (year: SchoolYear): Promise<void> => {
     const toInsert = rawSkills.filter(s => !s.id);
 
     if (toUpdate.length > 0) {
-      console.log(`[DB] Actualizando ${toUpdate.length} habilidades existentes...`);
       const { error: updateError } = await supabase.schema('api').from('subject_skills').upsert(toUpdate);
       if (updateError) throw updateError;
     }
 
     if (toInsert.length > 0) {
-      console.log(`[DB] Insertando ${toInsert.length} habilidades nuevas...`);
+   
       const { error: insertError } = await supabase.schema('api').from('subject_skills').insert(toInsert);
       if (insertError) throw insertError;
     }

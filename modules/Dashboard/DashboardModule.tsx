@@ -3,7 +3,7 @@ import {
   Users, UserCheck, UserX, CreditCard, Home, MapPin, 
   TrendingUp, BarChart3, PieChart, School, Loader2, ArrowUpRight, 
   CalendarDays, Info, AlertTriangle, ShieldAlert, Filter,
-  LayoutGrid, List, XCircle
+  LayoutGrid, List, XCircle, Search, ArrowUpDown
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getDashboardData, DashboardData } from '../../services/api/dashboard.api';
-import { getGrowerAssignments } from '../../services/api';
+import { getGrowerAssignments, getPendingGrades, PendingGrade, getGrowersPendingGrades, GrowerPendingGrade } from '../../services/api';
 import { Card } from '../../components/ui/Card';
 import { useAuth } from '../../context/AuthContext';
 import { notificationTriggerApi } from '../../services/api/notificationTrigger.api';
@@ -32,8 +32,29 @@ export const DashboardModule: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isRlsError, setIsRlsError] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [pendingGrades, setPendingGrades] = useState<PendingGrade[]>([]);
+  const [growersPendingGrades, setGrowersPendingGrades] = useState<GrowerPendingGrade[]>([]);
   const [isCheckingNotifications, setIsCheckingNotifications] = useState(false);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [loadingGrowersPending, setLoadingGrowersPending] = useState(false);
   const [myAssignments, setMyAssignments] = useState<GrowerAssignment[]>([]);
+
+  // Pending Grades Filters & Sorting
+  const [pendingSearch, setPendingSearch] = useState('');
+  const [pendingSortOrder, setPendingSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [pendingFilterYear, setPendingFilterYear] = useState<string>('all');
+  const [pendingFilterStation, setPendingFilterStation] = useState<string>('all');
+  const [pendingFilterGroup, setPendingFilterGroup] = useState<string>('all');
+  const [pendingFilterProgress, setPendingFilterProgress] = useState<string>('all');
+  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+
+  // Growers Pending Grades Filters
+  const [growerSearch, setGrowerSearch] = useState('');
+  const [growerFilterStation, setGrowerFilterStation] = useState<string>('all');
+  const [growerFilterLevel, setGrowerFilterLevel] = useState<string>('all');
+  const [growerFilterCourse, setGrowerFilterCourse] = useState<string>('all');
+  const [growerFilterProgress, setGrowerFilterProgress] = useState<string>('all');
+  const [expandedGrowerId, setExpandedGrowerId] = useState<string | null>(null);
   
   const isSupport = profile?.role === 'support';
   
@@ -70,8 +91,21 @@ export const DashboardModule: React.FC = () => {
       if (profile.role === 'grower') {
         getGrowerAssignments(profile.id).then(setMyAssignments);
       }
+      if (isSupport) {
+        setLoadingPending(true);
+        getPendingGrades()
+          .then(setPendingGrades)
+          .catch(err => console.error("[Dashboard] Error fetching pending grades:", err))
+          .finally(() => setLoadingPending(false));
+
+        setLoadingGrowersPending(true);
+        getGrowersPendingGrades()
+          .then(setGrowersPendingGrades)
+          .catch(err => console.error("[Dashboard] Error fetching growers pending grades:", err))
+          .finally(() => setLoadingGrowersPending(false));
+      }
     }
-  }, [profile?.id, profile?.role]);
+  }, [profile?.id, profile?.role, isSupport]);
 
   const handleManualCheck = async () => {
     setIsCheckingNotifications(true);
@@ -185,6 +219,166 @@ export const DashboardModule: React.FC = () => {
         .sort((a, b) => b.yearName.localeCompare(a.yearName))
     };
   }, [data, filteredStudents]);
+
+  // Filtered and Sorted Pending Grades
+  const filteredAndSortedPending = useMemo(() => {
+    let result = [...pendingGrades];
+
+    // 1. Search Filter
+    if (pendingSearch) {
+      const s = pendingSearch.toLowerCase();
+      result = result.filter(p => 
+        p.student_name.toLowerCase().includes(s) || 
+        p.subject_name.toLowerCase().includes(s) || 
+        p.station_name.toLowerCase().includes(s)
+      );
+    }
+
+    // 2. Year Filter (from end_date)
+    if (pendingFilterYear !== 'all') {
+      result = result.filter(p => p.end_date.startsWith(pendingFilterYear));
+    }
+
+    // 3. Station Filter
+    if (pendingFilterStation !== 'all') {
+      result = result.filter(p => p.station_name === pendingFilterStation);
+    }
+
+    // 4. Group (Grade) Filter - requires joining with data.students
+    if (pendingFilterGroup !== 'all' && data) {
+      result = result.filter(p => {
+        const student = data.students.find(s => s.id === p.student_id);
+        return student?.grade === pendingFilterGroup;
+      });
+    }
+
+    // 5. Progress Filter
+    if (pendingFilterProgress !== 'all') {
+      result = result.filter(p => {
+        const pct = parseFloat(p.progress_percentage);
+        if (pendingFilterProgress === 'not_started') return pct === 0;
+        if (pendingFilterProgress === 'in_progress') return pct > 0 && pct < 100;
+        if (pendingFilterProgress === 'almost_done') return pct >= 80 && pct < 100;
+        return true;
+      });
+    }
+
+    // 6. Sorting
+    result.sort((a, b) => {
+      return pendingSortOrder === 'asc' 
+        ? a.days_to_close - b.days_to_close 
+        : b.days_to_close - a.days_to_close;
+    });
+
+    return result;
+  }, [pendingGrades, pendingSearch, pendingSortOrder, pendingFilterYear, pendingFilterStation, pendingFilterGroup, pendingFilterProgress, data]);
+
+  // Grouped Pending Grades by Student
+  const groupedPending = useMemo(() => {
+    const groups: Record<string, { 
+      student_name: string, 
+      student_id: string,
+      grade?: string,
+      pendings: PendingGrade[],
+      max_delay: number 
+    }> = {};
+
+    filteredAndSortedPending.forEach(p => {
+      if (!groups[p.student_id]) {
+        const student = data?.students.find(s => s.id === p.student_id);
+        groups[p.student_id] = {
+          student_id: p.student_id,
+          student_name: p.student_name,
+          grade: student?.grade,
+          pendings: [],
+          max_delay: Infinity
+        };
+      }
+      groups[p.student_id].pendings.push(p);
+      if (p.days_to_close < groups[p.student_id].max_delay) {
+        groups[p.student_id].max_delay = p.days_to_close;
+      }
+    });
+
+    // Calculate overall progress for each group
+    Object.values(groups).forEach(group => {
+      const total = group.pendings.reduce((acc, p) => acc + p.total_slots, 0);
+      const completed = group.pendings.reduce((acc, p) => acc + p.completed_slots, 0);
+      (group as any).avg_progress = total > 0 ? (completed / total) * 100 : 0;
+    });
+
+    return Object.values(groups).sort((a, b) => {
+      return pendingSortOrder === 'asc' ? a.max_delay - b.max_delay : b.max_delay - a.max_delay;
+    });
+  }, [filteredAndSortedPending, data, pendingSortOrder]);
+
+  // Filtered and Grouped Growers Pending Grades
+  const filteredAndGroupedGrowers = useMemo(() => {
+    let result = [...growersPendingGrades];
+
+    // 1. Search Filter
+    if (growerSearch) {
+      const s = growerSearch.toLowerCase();
+      result = result.filter(g => 
+        g.grower_name.toLowerCase().includes(s) || 
+        g.subject_name.toLowerCase().includes(s)
+      );
+    }
+
+    // 2. Station Filter
+    if (growerFilterStation !== 'all') {
+      result = result.filter(g => g.station_name === growerFilterStation);
+    }
+
+    // 3. Level Filter
+    if (growerFilterLevel !== 'all') {
+      result = result.filter(g => g.academic_level === growerFilterLevel);
+    }
+
+    // 4. Course Filter
+    if (growerFilterCourse !== 'all') {
+      result = result.filter(g => g.course === growerFilterCourse);
+    }
+
+    // 5. Progress Filter
+    if (growerFilterProgress !== 'all') {
+      result = result.filter(g => {
+        const pct = parseFloat(g.avg_progress);
+        if (growerFilterProgress === 'not_started') return pct === 0;
+        if (growerFilterProgress === 'in_progress') return pct > 0 && pct < 100;
+        if (growerFilterProgress === 'almost_done') return pct >= 80 && pct < 100;
+        return true;
+      });
+    }
+
+    // Grouping by grower
+    const groups: Record<string, {
+      grower_id: string,
+      grower_name: string,
+      assignments: GrowerPendingGrade[],
+      avg_total_progress: number
+    }> = {};
+
+    result.forEach(g => {
+      if (!groups[g.grower_id]) {
+        groups[g.grower_id] = {
+          grower_id: g.grower_id,
+          grower_name: g.grower_name,
+          assignments: [],
+          avg_total_progress: 0
+        };
+      }
+      groups[g.grower_id].assignments.push(g);
+    });
+
+    // Calculate total average progress per grower
+    Object.values(groups).forEach(group => {
+      const total = group.assignments.reduce((acc, a) => acc + parseFloat(a.avg_progress), 0);
+      group.avg_total_progress = group.assignments.length > 0 ? total / group.assignments.length : 0;
+    });
+
+    return Object.values(groups).sort((a, b) => a.grower_name.localeCompare(b.grower_name));
+  }, [growersPendingGrades, growerSearch, growerFilterStation, growerFilterLevel, growerFilterCourse, growerFilterProgress]);
 
   if (loading) {
     return (
@@ -557,11 +751,196 @@ export const DashboardModule: React.FC = () => {
 
       {/* Secondary Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {isSupport && (
+          <Card className="flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                <AlertTriangle className="text-amber-500" size={24} /> 
+                Estudiantes con Notas Pendientes
+              </h3>
+              <div className="px-4 py-2 bg-amber-50 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                {groupedPending.length} Estudiantes
+              </div>
+            </div>
+
+            {/* Filters & Sorting */}
+            <div className="space-y-4 mb-8">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input 
+                    type="text"
+                    placeholder="Buscar estudiante o materia..."
+                    value={pendingSearch}
+                    onChange={(e) => setPendingSearch(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none transition-all"
+                  />
+                </div>
+                <button
+                  onClick={() => setPendingSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-white hover:shadow-sm transition-all"
+                >
+                  <ArrowUpDown size={14} className="text-amber-500" />
+                  {pendingSortOrder === 'asc' ? 'Más Retraso' : 'Menos Retraso'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <select 
+                  value={pendingFilterYear}
+                  onChange={(e) => setPendingFilterYear(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value="all">Todos los Años</option>
+                  {Array.from(new Set(pendingGrades.map(p => p.end_date.split('-')[0]))).sort().map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+
+                <select 
+                  value={pendingFilterStation}
+                  onChange={(e) => setPendingFilterStation(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value="all">Todas las Estaciones</option>
+                  {Array.from(new Set(pendingGrades.map(p => p.station_name))).sort().map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+
+                <select 
+                  value={pendingFilterGroup}
+                  onChange={(e) => setPendingFilterGroup(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value="all">Todos los Grupos</option>
+                  {data?.availableCourses.map(c => (
+                    <option key={c} value={c}>Grado {c}</option>
+                  ))}
+                </select>
+
+                <select 
+                  value={pendingFilterProgress}
+                  onChange={(e) => setPendingFilterProgress(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-2 focus:ring-amber-500 outline-none"
+                >
+                  <option value="all">Cualquier Progreso</option>
+                  <option value="not_started">Sin Iniciar (0%)</option>
+                  <option value="in_progress">En Progreso</option>
+                  <option value="almost_done">Casi Listos (≥80%)</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
+              {loadingPending ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Cargando pendientes...</p>
+                </div>
+              ) : groupedPending.length > 0 ? (
+                groupedPending.map((group) => (
+                  <div key={group.student_id} className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all">
+                    <button 
+                      onClick={() => setExpandedStudentId(expandedStudentId === group.student_id ? null : group.student_id)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-xl ${group.max_delay < 0 ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                          <Users size={18} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-800">{group.student_name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              {group.grade ? `Grado ${group.grade}` : 'Sin Grado'} • {group.pendings.length} Materias
+                            </p>
+                            <span className="text-[10px] font-black text-indigo-600">
+                              {Math.round((group as any).avg_progress)}% Progreso Total
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${group.max_delay < 0 ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
+                          {group.max_delay < 0 ? `Retraso: ${Math.abs(group.max_delay)}d` : `Cierra en: ${group.max_delay}d`}
+                        </span>
+                        <motion.div
+                          animate={{ rotate: expandedStudentId === group.student_id ? 180 : 0 }}
+                        >
+                          <ArrowUpRight size={16} className="text-slate-300" />
+                        </motion.div>
+                      </div>
+                    </button>
+
+                    <AnimatePresence>
+                      {expandedStudentId === group.student_id && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="border-t border-slate-50 bg-slate-50/50"
+                        >
+                          <div className="p-4 space-y-3">
+                            {group.pendings.map((pending) => (
+                              <div key={`${pending.subject_id}-${pending.station_id}`} className="p-4 bg-white rounded-xl border border-slate-100 space-y-3 group/item">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="text-xs font-black text-slate-700">{pending.subject_name}</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
+                                      {pending.station_name} • Cierre: {format(new Date(pending.end_date), "d MMM, yyyy", { locale: es })}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg ${pending.days_to_close < 0 ? 'bg-rose-50 text-rose-500' : 'bg-amber-50 text-amber-500'}`}>
+                                      {pending.days_to_close < 0 ? `Vencido ${Math.abs(pending.days_to_close)}d` : `${pending.days_to_close}d restantes`}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                    <span>Progreso de Calificación</span>
+                                    <span className="text-indigo-600">{pending.progress_percentage}%</span>
+                                  </div>
+                                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
+                                    <motion.div 
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${pending.progress_percentage}%` }}
+                                      className={`h-full ${parseFloat(pending.progress_percentage) === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                    />
+                                  </div>
+                                  <p className="text-[9px] font-bold text-slate-400 text-right">
+                                    {pending.completed_slots} de {pending.total_slots} slots completados
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <ShieldAlert size={48} className="mb-4 opacity-20" />
+                  <p className="text-xs font-bold uppercase tracking-widest">
+                    {pendingSearch || pendingFilterYear !== 'all' || pendingFilterStation !== 'all' || pendingFilterGroup !== 'all' 
+                      ? 'No se encontraron resultados' 
+                      : 'Todo al día'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
         <Card className="flex flex-col">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-              <AlertTriangle className="text-amber-500" size={24} /> 
-              Alertas de Notas Pendientes
+              <Info className="text-indigo-500" size={24} /> 
+              Notificaciones de Alerta
             </h3>
             <button
               onClick={handleManualCheck}
@@ -573,8 +952,8 @@ export const DashboardModule: React.FC = () => {
             </button>
           </div>
           
-          <div className="flex-1 space-y-4">
-            {notifications.filter(n => n.type === 'warning' || n.type === 'info' || n.type === 'error').slice(0, 5).map((notif) => (
+          <div className="flex-1 space-y-4 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
+            {notifications.filter(n => n.type === 'warning' || n.type === 'info' || n.type === 'error').slice(0, 10).map((notif) => (
               <div key={notif.id} className={`p-4 rounded-2xl border flex gap-4 items-start ${
                 notif.type === 'error' ? 'bg-red-50 border-red-100' : 
                 notif.type === 'warning' ? 'bg-amber-50 border-amber-100' : 
@@ -645,6 +1024,189 @@ export const DashboardModule: React.FC = () => {
           </Card>
         )}
       </div>
+
+      {/* Growers Pending Grades Row */}
+      {isSupport && (
+        <div className="mt-8">
+          <Card className="flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                <Users className="text-indigo-500" size={24} /> 
+                Pendientes por Grower (Docente)
+              </h3>
+              <div className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                {filteredAndGroupedGrowers.length} Docentes
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="space-y-4 mb-8">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input 
+                    type="text"
+                    placeholder="Buscar docente o materia..."
+                    value={growerSearch}
+                    onChange={(e) => setGrowerSearch(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <select 
+                  value={growerFilterStation}
+                  onChange={(e) => setGrowerFilterStation(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="all">Todas las Estaciones</option>
+                  {Array.from(new Set(growersPendingGrades.map(g => g.station_name))).sort().map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+
+                <select 
+                  value={growerFilterLevel}
+                  onChange={(e) => setGrowerFilterLevel(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="all">Todos los Niveles</option>
+                  {Array.from(new Set(growersPendingGrades.map(g => g.academic_level))).sort().map(l => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+
+                <select 
+                  value={growerFilterCourse}
+                  onChange={(e) => setGrowerFilterCourse(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="all">Todos los Cursos</option>
+                  {Array.from(new Set(growersPendingGrades.map(g => g.course))).sort().map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+
+                <select 
+                  value={growerFilterProgress}
+                  onChange={(e) => setGrowerFilterProgress(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="all">Cualquier Progreso</option>
+                  <option value="not_started">Sin Iniciar (0%)</option>
+                  <option value="in_progress">En Progreso</option>
+                  <option value="almost_done">Casi Listos (≥80%)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-3 overflow-y-auto max-h-[800px] pr-2 custom-scrollbar">
+              {loadingGrowersPending ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Cargando datos de docentes...</p>
+                </div>
+              ) : filteredAndGroupedGrowers.length > 0 ? (
+                filteredAndGroupedGrowers.map((group) => (
+                  <div key={group.grower_id} className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all">
+                    <button 
+                      onClick={() => setExpandedGrowerId(expandedGrowerId === group.grower_id ? null : group.grower_id)}
+                      className="w-full p-5 flex items-center justify-between hover:bg-slate-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 rounded-xl bg-indigo-100 text-indigo-600">
+                          <School size={20} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-800">{group.grower_name}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              {group.assignments.length} Asignaciones Pendientes
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-500" style={{ width: `${group.avg_total_progress}%` }}></div>
+                              </div>
+                              <span className="text-[10px] font-black text-indigo-600">
+                                {Math.round(group.avg_total_progress)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <motion.div
+                        animate={{ rotate: expandedGrowerId === group.grower_id ? 180 : 0 }}
+                      >
+                        <ArrowUpRight size={18} className="text-slate-300" />
+                      </motion.div>
+                    </button>
+
+                    <AnimatePresence>
+                      {expandedGrowerId === group.grower_id && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="border-t border-slate-50 bg-slate-50/50"
+                        >
+                          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {group.assignments.map((assign) => (
+                              <div key={`${assign.subject_id}-${assign.course}-${assign.station_id}`} className="p-4 bg-white rounded-xl border border-slate-100 space-y-4 shadow-sm">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="text-xs font-black text-slate-700">{assign.subject_name}</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
+                                      {assign.academic_level} • {assign.course} • {assign.station_name}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg ${parseFloat(assign.avg_progress) === 100 ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                      {Math.round(parseFloat(assign.avg_progress))}%
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="p-2 bg-slate-50 rounded-lg text-center">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Total</p>
+                                    <p className="text-xs font-black text-slate-700">{assign.total_students}</p>
+                                  </div>
+                                  <div className="p-2 bg-rose-50 rounded-lg text-center">
+                                    <p className="text-[8px] font-black text-rose-400 uppercase mb-1">Sin Nota</p>
+                                    <p className="text-xs font-black text-rose-700">{assign.students_without_grades}</p>
+                                  </div>
+                                  <div className="p-2 bg-amber-50 rounded-lg text-center">
+                                    <p className="text-[8px] font-black text-amber-400 uppercase mb-1">Incomp.</p>
+                                    <p className="text-xs font-black text-amber-700">{assign.students_incomplete}</p>
+                                  </div>
+                                </div>
+
+                                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${assign.avg_progress}%` }}
+                                    className={`h-full ${parseFloat(assign.avg_progress) === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <ShieldAlert size={48} className="mb-4 opacity-20" />
+                  <p className="text-xs font-bold uppercase tracking-widest">No hay asignaciones pendientes</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

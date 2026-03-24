@@ -60,10 +60,12 @@ export const getEnrolledStudents = async (
 
   if (filters?.levels && filters.levels.length > 0) {
     const orFilter = filters.levels.map(l => `academic_level.ilike.${l}%`).join(',');
+    console.log('[API:getEnrolledStudents] Applying levels filter:', orFilter);
     query = query.or(orFilter);
   }
 
   if (filters?.atelier && filters.atelier !== 'all') {
+    console.log('[API:getEnrolledStudents] Applying atelier filter:', filters.atelier);
     query = query.ilike('atelier', `%${filters.atelier}%`);
   }
 
